@@ -33,6 +33,13 @@ def main(argv=None) -> int:
     s.add_argument("--course")
     s.add_argument("--doc")
 
+    q = sub.add_parser("ask", help="ask a question and get a cited answer")
+    q.add_argument("question")
+    q.add_argument("-k", type=int, default=None, help="how many excerpts to use")
+    q.add_argument("--course")
+    q.add_argument("--provider", help="mistral, openai or ollama")
+    q.add_argument("--model")
+
     c = sub.add_parser("chunks", help="print stored chunks of a document")
     c.add_argument("doc_id")
     c.add_argument("--page", type=int)
@@ -41,6 +48,13 @@ def main(argv=None) -> int:
     x = sub.add_parser("export", help="export all chunks of a document to CSV")
     x.add_argument("doc_id")
     x.add_argument("out", nargs="?", default=None)
+
+    u = sub.add_parser("adduser", help="create an API user and print their token once")
+    u.add_argument("name")
+    u.add_argument("--role", choices=["reader", "contributor", "admin"], default="reader")
+    sub.add_parser("users", help="list API users")
+    d = sub.add_parser("deluser", help="delete an API user")
+    d.add_argument("name")
 
     r = sub.add_parser("remove", help="remove a document by id")
     r.add_argument("doc_id")
@@ -74,6 +88,27 @@ def main(argv=None) -> int:
             print(f"{i}. {h.citation}{chap}  score={h.score:.2f}\n   {snippet}\n")
         return 0
 
+    if args.cmd == "ask":
+        from archive.llm import LLMError, get_llm
+        from archive.qa import answer_question
+        try:
+            llm = get_llm(args.provider, args.model)          # fails early if the key is missing
+            res = answer_question(args.question, VectorStore(), llm, k=args.k, course=args.course)
+        except LLMError as e:
+            print(f"Problem: {e}")
+            return 1
+        print(res.answer)
+        if res.sources:
+            print("\nSources:")
+            for s in res.sources:
+                print(f"  [{s['n']}] {s['citation']}")
+        elif res.related:
+            note = "weak match" if res.low_confidence else "no citations in this answer, so double check it"
+            print(f"\nPages that may help ({note}):")
+            for c in res.related:
+                print(f"  {c}")
+        return 0
+
     if args.cmd == "chunks":
         rows = VectorStore().list_chunks(args.doc_id, args.page)
         if not rows:
@@ -98,6 +133,31 @@ def main(argv=None) -> int:
             w.writerows(rows)
         print(f"Wrote {len(rows)} chunks to {out.resolve()}")
         return 0
+
+    if args.cmd == "adduser":
+        from archive import auth
+        try:
+            token = auth.add_user(args.name, args.role)
+        except ValueError as e:
+            print(e)
+            return 1
+        print(f"Created {args.role} '{args.name}'. Token (shown once, copy it now):\n{token}")
+        return 0
+
+    if args.cmd == "users":
+        from archive import auth
+        users = auth.list_users()
+        if not users:
+            print("No users yet. Create one with: python cli.py adduser NAME --role admin")
+        for u in users:
+            print(f"{u.name:20} {u.role}")
+        return 0
+
+    if args.cmd == "deluser":
+        from archive import auth
+        ok = auth.remove_user(args.name)
+        print("Removed." if ok else "No such user.")
+        return 0 if ok else 1
 
     if args.cmd == "remove":
         store = VectorStore()
