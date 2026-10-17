@@ -1,0 +1,21 @@
+# Virtual environment and Python caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Archive data (vector index and registry are rebuilt by ingesting)
+data/
+
+# Course PDFs and exports (large, and may be copyrighted)
+pdfs/
+*.pdf
+*_chunks.csv
+
+# Secrets, for the LLM step later (API keys)
+.env
+
+# Editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db

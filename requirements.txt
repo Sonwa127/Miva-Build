@@ -1,0 +1,5 @@
+pymupdf>=1.24
+chromadb>=0.5
+pytest>=8.0
+# Optional: OCR for scanned pages (also needs the tesseract binary installed)
+# pytesseract
