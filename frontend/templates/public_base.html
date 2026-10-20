@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Free course resources, lecture PDFs, videos, and study tools shared with our classmates.">
+  <title>{% block title %}StudyArchive · Free resources for our class{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/css/tailwind.generated.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/resources.css">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="classroom-site">
+  <a href="#main" class="skip-link">Skip to content</a>
+  <header class="site-header">
+    <a class="site-brand" href="/"><span class="brand-icon">S</span> StudyArchive <span class="free-badge">Always free</span></a>
+    <nav aria-label="Main navigation">
+      <a href="/" {% if active_page == 'home' %}aria-current="page"{% endif %}>Home</a>
+      <a href="/courses" {% if active_page == 'courses' %}aria-current="page"{% endif %}>Courses</a>
+      <a href="/resources" {% if active_page == 'resources' %}aria-current="page"{% endif %}>Resources</a>
+      <a href="/ask" {% if active_page == 'ask' %}aria-current="page"{% endif %}>Ask AI</a>
+      <a href="/study" {% if active_page == 'study' %}aria-current="page"{% endif %}>Flashcards</a>
+    </nav>
+  </header>
+  <main id="main" class="site-main">{% block content %}{% endblock %}</main>
+  <footer class="site-footer"><span>Made for our classmates. Free to browse, watch, and study.</span><a href="/admin">Admin</a></footer>
+  <div id="toastNotification" aria-live="polite" class="fixed top-20 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl transition-all duration-300 pointer-events-none transform translate-y-[-100px] opacity-0" role="status"></div>
+  <script src="/static/js/app.js"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

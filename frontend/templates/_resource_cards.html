@@ -1,0 +1,22 @@
+{% for document in documents | default([]) %}
+<article class="resource-card">
+  <span class="resource-tag pdf">PDF READING</span>
+  <span class="card-course">{{ document.course or 'General resources' }}</span>
+  <h3>{{ document.title }}</h3>
+  <p>{{ document.page_count }} pages · Original formatting preserved</p>
+  <div class="card-actions"><a class="btn small" href="/viewer/{{ document.doc_id }}">Read PDF</a><a href="/api/documents/{{ document.doc_id }}/file?download=true">Download</a></div>
+</article>
+{% endfor %}
+{% for resource in resources | default([]) %}
+<article class="resource-card">
+  <span class="resource-tag {{ 'video' if resource.is_video else 'link' }}">{{ 'VIDEO PLAYLIST' if resource.is_playlist else 'VIDEO LESSON' if resource.is_video else 'USEFUL LINK' }}</span>
+  {% if resource.is_video %}<span class="card-course">{{ resource.provider }}</span>{% endif %}
+  <span class="card-course">{{ resource.course or 'General resources' }}</span>
+  <h3>{{ resource.title }}</h3>
+  <p>{{ resource.description | truncate(180) }}</p>
+  <div class="card-actions">
+    {% if resource.is_video %}<a class="btn small" href="/watch/{{ resource.id }}">{{ 'Watch playlist' if resource.is_playlist else 'Watch here' }}</a>
+    {% else %}<a class="btn small" href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">Open resource ↗</a>{% endif %}
+  </div>
+</article>
+{% endfor %}

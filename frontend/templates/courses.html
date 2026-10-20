@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Course Library — StudyArchive{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6 max-w-7xl mx-auto">
+  <!-- Header Area -->
+  <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <div class="text-xs font-semibold text-secondary uppercase tracking-wider">Course Knowledge Base • Archived & Indexed</div>
+      <h1 class="text-3xl font-bold text-on-surface tracking-tight mt-0.5">Course Library</h1>
+      <p class="text-sm text-on-surface-variant">Organize, index, and master your enrolled academic courses. Search syllabi, lecture decks, and active-recall sets.</p>
+    </div>
+    <button onclick="document.getElementById('addCourseModal').classList.remove('hidden')" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-white text-sm font-semibold transition-all shadow-md self-start sm:self-auto">
+      <span class="material-symbols-outlined text-[18px]">add</span>
+      <span>Add Course</span>
+    </button>
+  </section>
+
+  <!-- Metric Banner -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+        <span class="material-symbols-outlined text-[20px]">school</span>
+      </div>
+      <div>
+        <div class="text-xl font-bold text-on-surface" id="activeCoursesCount">0</div>
+        <div class="text-xs text-outline font-medium">Active Courses</div>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+      </div>
+      <div>
+        <div class="text-xl font-bold text-on-surface" id="completedCoursesCount">0</div>
+        <div class="text-xs text-outline font-medium">Completed</div>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+        <span class="material-symbols-outlined text-[20px]">description</span>
+      </div>
+      <div>
+        <div class="text-xl font-bold text-on-surface" id="docsIndexedCount">0</div>
+        <div class="text-xs text-outline font-medium">Docs Indexed</div>
+      </div>
+    </div>
+
+    <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+        <span class="material-symbols-outlined text-[20px]">style</span>
+      </div>
+      <div>
+        <div class="text-xl font-bold text-on-surface" id="flashcardsTotalCount">0</div>
+        <div class="text-xs text-outline font-medium">Flashcards</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Filter & Search Controls Bar -->
+  <section class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-2 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm">
+    <!-- Search Bar -->
+    <div class="relative flex-1 max-w-md">
+      <span class="material-symbols-outlined text-outline absolute left-3 top-2.5 text-[18px]">search</span>
+      <input type="text" id="courseSearchInput" oninput="filterCourses()" placeholder="Search by code, title, instructor, or topic..." class="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-50 border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none"/>
+    </div>
+
+    <!-- Filter Pills & Sorting -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+        <button onclick="setFilter('all')" id="filterAll" class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-on-surface">All (<span id="countAll">0</span>)</button>
+        <button onclick="setFilter('active')" id="filterActive" class="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface">In Progress (<span id="countActive">0</span>)</button>
+        <button onclick="setFilter('completed')" id="filterCompleted" class="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface">Completed (<span id="countCompleted">0</span>)</button>
+      </div>
+
+      <select id="courseSort" onchange="renderCourses()" class="text-xs font-medium px-3 py-2 rounded-xl bg-slate-50 border border-[#e2e8f0] text-on-surface focus:outline-none">
+        <option value="recent">Recently Added</option>
+        <option value="code">Course Code (A-Z)</option>
+        <option value="retention">Highest Retention</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Courses Grid -->
+  <section id="coursesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Populated dynamically via JavaScript from /api/courses -->
+  </section>
+</div>
+
+<!-- Add Course Modal -->
+<div id="addCourseModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm hidden">
+  <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl p-6 flex flex-col gap-4 border border-[#e2e8f0]">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-primary-container text-white flex items-center justify-center">
+          <span class="material-symbols-outlined text-[20px]">add_circle</span>
+        </div>
+        <h3 class="text-base font-bold text-on-surface">Enroll New Course</h3>
+      </div>
+      <button onclick="document.getElementById('addCourseModal').classList.add('hidden')" class="p-1 rounded-lg hover:bg-slate-100 text-outline">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <form id="addCourseForm" class="flex flex-col gap-3.5">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface mb-1">Course Code *</label>
+          <input type="text" name="code" placeholder="e.g. CS 240" class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none" required/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface mb-1">Academic Term</label>
+          <input type="text" name="term" placeholder="e.g. Spring 2025" class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-on-surface mb-1">Course Name *</label>
+        <input type="text" name="name" placeholder="e.g. Data Structures & Algorithmic Analysis" class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none" required/>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-on-surface mb-1">Instructor</label>
+          <input type="text" name="instructor" placeholder="e.g. Prof. Marcus Vance" class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none"/>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-on-surface mb-1">Schedule</label>
+          <input type="text" name="schedule" placeholder="e.g. MWF 10:00 AM" class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-on-surface mb-1">Description / Syllabus Overview</label>
+        <textarea name="description" rows="2" placeholder="Brief summary of topics covered in the course..." class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none"></textarea>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-[#e2e8f0]">
+        <button type="button" onclick="document.getElementById('addCourseModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold text-outline hover:bg-slate-100">Cancel</button>
+        <button type="submit" class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+          <span>Create Course</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let allCoursesList = [];
+let currentFilter = 'all';
+
+async function loadCourses() {
+  try {
+    allCoursesList = await api("/api/courses");
+    renderCourses();
+  } catch (err) {
+    console.error("Error loading courses:", err);
+  }
+}
+
+function setFilter(filter) {
+  currentFilter = filter;
+  ['all', 'active', 'completed'].forEach(f => {
+    const btn = document.getElementById(`filter${f.charAt(0).toUpperCase() + f.slice(1)}`);
+    if (btn) {
+      if (f === filter) {
+        btn.className = "px-3 py-1.5 rounded-lg bg-white shadow-sm text-on-surface";
+      } else {
+        btn.className = "px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface";
+      }
+    }
+  });
+  renderCourses();
+}
+
+function filterCourses() {
+  renderCourses();
+}
+
+function renderCourses() {
+  const container = document.getElementById("coursesGrid");
+  const query = (document.getElementById("courseSearchInput")?.value || "").toLowerCase();
+
+  let filtered = allCoursesList.filter(c => {
+    if (currentFilter === 'active' && c.status !== 'active') return false;
+    if (currentFilter === 'completed' && c.status !== 'completed') return false;
+    if (query) {
+      const match = c.code.toLowerCase().includes(query) ||
+                    c.name.toLowerCase().includes(query) ||
+                    c.instructor.toLowerCase().includes(query) ||
+                    c.description.toLowerCase().includes(query);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  const sortMode = document.getElementById("courseSort")?.value || "recent";
+  filtered.sort((a, b) => {
+    if (sortMode === "code") return String(a.code || "").localeCompare(String(b.code || ""), undefined, { numeric: true });
+    if (sortMode === "retention") return Number(b.stats?.retention || 0) - Number(a.stats?.retention || 0);
+    return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+  });
+
+  // Update counter badges
+  const activeCount = allCoursesList.filter(c => c.status === 'active').length;
+  const completedCount = allCoursesList.filter(c => c.status === 'completed').length;
+  const totalDocs = allCoursesList.reduce((acc, c) => acc + (c.stats?.doc_count || 0), 0);
+  const totalCards = allCoursesList.reduce((acc, c) => acc + (c.stats?.flashcard_count || 0), 0);
+
+  if (document.getElementById("countAll")) document.getElementById("countAll").innerText = allCoursesList.length;
+  if (document.getElementById("countActive")) document.getElementById("countActive").innerText = activeCount;
+  if (document.getElementById("countCompleted")) document.getElementById("countCompleted").innerText = completedCount;
+  if (document.getElementById("activeCoursesCount")) document.getElementById("activeCoursesCount").innerText = activeCount;
+  if (document.getElementById("completedCoursesCount")) document.getElementById("completedCoursesCount").innerText = completedCount;
+  if (document.getElementById("docsIndexedCount")) document.getElementById("docsIndexedCount").innerText = totalDocs;
+  if (document.getElementById("flashcardsTotalCount")) document.getElementById("flashcardsTotalCount").innerText = totalCards;
+
+  if (allCoursesList.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-16 text-center text-outline bg-surface-container-lowest rounded-2xl border border-dashed border-[#cbd5e1] p-8">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center mx-auto mb-3">
+          <span class="material-symbols-outlined text-2xl">school</span>
+        </div>
+        <div class="text-base font-bold text-on-surface">No Courses Enrolled Yet</div>
+        <p class="text-xs text-on-surface-variant max-w-sm mx-auto mt-1 mb-4">Enroll your first academic course to upload syllabus documents, index lecture slides, and generate spaced-repetition study sets.</p>
+        <button onclick="document.getElementById('addCourseModal').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-all shadow-sm">
+          + Enroll Your First Course
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-16 text-center text-outline">
+        <span class="material-symbols-outlined text-4xl mb-2">search_off</span>
+        <div class="text-base font-semibold text-on-surface">No courses match your filter</div>
+        <p class="text-xs text-on-surface-variant mt-1">Try a different search query or add a new course.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(c => {
+    const isCompleted = c.status === 'completed';
+    const statusPill = isCompleted
+      ? `<span class="text-[10px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">check</span>Completed</span>`
+      : `<span class="text-[10px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full">In Progress</span>`;
+
+    const retentionPct = Math.round(c.stats?.retention || 0);
+
+    return `
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between gap-4 hover:shadow-md transition-shadow">
+        <div class="flex flex-col gap-3">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800">${escapeHtml(c.code)}</span>
+              ${statusPill}
+            </div>
+            <a href="/ask?course_id=${encodeURIComponent(c.code)}" class="p-1 rounded-lg text-outline hover:text-primary hover:bg-slate-50" title="Ask AI about ${escapeAttr(c.code)}">
+              <span class="material-symbols-outlined text-[18px]">psychology</span>
+            </a>
+          </div>
+
+          <div>
+            <h3 class="text-base font-bold text-on-surface line-clamp-1">${escapeHtml(c.name)}</h3>
+            <p class="text-xs text-on-surface-variant mt-0.5">${escapeHtml(c.instructor ? c.instructor + ' • ' : '')}${escapeHtml(c.term || '')}</p>
+          </div>
+
+          <p class="text-xs text-on-surface-variant line-clamp-2 leading-relaxed">
+            ${escapeHtml(c.description || 'Comprehensive curriculum archives, vector search, and active-recall practice.')}
+          </p>
+
+          <div class="flex items-center gap-3 text-xs text-on-surface-variant pt-1 flex-wrap">
+            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">description</span>${c.stats?.doc_count || 0} Docs</span>
+            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">style</span>${c.stats?.flashcard_count || 0} Cards</span>
+            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-outline">quiz</span>${c.stats?.quiz_count || 0} Quizzes</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3 pt-3 border-t border-[#f2f3ff]">
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between text-[11px] text-on-surface-variant font-medium">
+              <span>Material Retention</span>
+              <span class="font-bold text-on-surface">${retentionPct}% ${isCompleted ? 'Complete' : 'Mastered'}</span>
+            </div>
+            <div class="w-full bg-[#eaedff] h-1.5 rounded-full overflow-hidden">
+              <div class="bg-primary-container h-full rounded-full" style="width: ${retentionPct}%;"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <a href="/courses/${encodeURIComponent(c.id)}" class="flex-1 text-center py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-[#e2e8f0] text-xs font-semibold text-on-surface transition-colors">
+              ${isCompleted ? 'Browse Archive' : 'Resume Study →'}
+            </a>
+            <a href="/ask?course_id=${encodeURIComponent(c.code)}" class="p-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors" title="Ask AI">
+              <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const query = new URLSearchParams(window.location.search).get("q");
+  if (query) document.getElementById("courseSearchInput").value = query;
+  loadCourses();
+
+  const addForm = document.getElementById("addCourseForm");
+  if (addForm) {
+    addForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(addForm);
+      const payload = Object.fromEntries(formData.entries());
+
+      try {
+        await api("/api/courses", "POST", payload);
+        showToast(`Course ${payload.code} enrolled successfully!`);
+        document.getElementById("addCourseModal").classList.add("hidden");
+        addForm.reset();
+        loadCourses();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

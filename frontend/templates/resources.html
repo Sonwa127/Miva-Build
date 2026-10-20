@@ -1,0 +1,12 @@
+{% extends 'public_base.html' %}
+{% block title %}Free resource library · StudyArchive{% endblock %}
+{% block content %}
+<section class="page-heading"><div><div class="eyebrow">Read it. Watch it. Get it.</div><h1>A little more clarity.</h1><p>All our extra course resources in one place. Open a reading, watch a video here, or explore a useful reference.</p></div><span class="free-badge">No account needed</span></section>
+<form method="get" class="filters" action="/resources">
+  <input type="search" name="q" value="{{ query }}" aria-label="Search resources" placeholder="Search resources…">
+  <select name="course" aria-label="Filter by course"><option value="">Every course</option>{% for course in courses %}<option value="{{ course.code }}" {% if selected_course == course.code %}selected{% endif %}>{{ course.code }} · {{ course.name }}</option>{% endfor %}</select>
+  <select name="kind" aria-label="Resource type"><option value="">All resources</option><option value="pdf" {% if selected_kind == 'pdf' %}selected{% endif %}>PDF readings</option><option value="video" {% if selected_kind in ['video', 'youtube'] %}selected{% endif %}>Videos & playlists</option><option value="playlist" {% if selected_kind == 'playlist' %}selected{% endif %}>Playlists only</option><option value="link" {% if selected_kind == 'link' %}selected{% endif %}>Useful links</option></select>
+  <button class="btn" type="submit">Find resources</button>
+</form>
+<div class="resource-grid">{% include '_resource_cards.html' %}{% if not documents and not resources %}<div class="empty-state">No matching resources yet. Try another search or course.</div>{% endif %}</div>
+{% endblock %}

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from . import config
@@ -20,6 +21,7 @@ _WS = re.compile(r"[ \t]+")
 
 
 def _clean(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).replace("\u00ad", "")
     text = text.replace("­", "")                    # soft hyphens
     text = re.sub(r"-\n(?=[a-z])", "", text)             # re-join hyphenated line breaks
     text = _WS.sub(" ", text)
@@ -35,8 +37,11 @@ def _split_paragraph(par: str, size: int) -> list[str]:
             if buf:
                 out.append(buf)
                 buf = ""
-            out.append(s[:size])
-            s = s[size:]
+            cut = s.rfind(" ", 0, size + 1)
+            if cut < size // 2:
+                cut = size
+            out.append(s[:cut].strip())
+            s = s[cut:].strip()
         if len(buf) + len(s) + 1 > size and buf:
             out.append(buf)
             buf = s

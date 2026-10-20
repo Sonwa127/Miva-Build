@@ -1,0 +1,17 @@
+{% extends 'public_base.html' %}
+{% block title %}{{ resource.title }} · {{ 'Video playlist' if resource.is_playlist else 'Video lesson' }}{% endblock %}
+{% block content %}
+<div class="watch-layout">
+  <div class="breadcrumbs"><a href="/resources">Resources</a> / {{ resource.course or 'General study' }}</div>
+  <section class="page-heading"><div><div class="eyebrow">{{ resource.provider }} · {{ 'Playlist' if resource.is_playlist else 'Video lesson' }} · {{ resource.course or 'General resources' }}</div><h1>{{ resource.title }}</h1></div></section>
+  {% if resource.player_type == 'file' %}
+  <video class="video-player" controls playsinline preload="metadata" aria-label="{{ resource.title }}" src="{{ resource.embed_url }}">Your browser cannot play this video. <a href="{{ resource.url }}">Open the video file</a>.</video>
+  {% else %}
+  <iframe class="video-player" src="{{ resource.embed_url }}" title="{{ resource.title }}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  {% endif %}
+  {% if resource.is_playlist %}<p class="muted" style="font-size:13px;margin-top:12px">Use the player's playlist menu to choose a lesson. Available lessons depend on the creator's sharing settings.</p>{% endif %}
+  <p class="watch-description">{{ resource.description }}</p>
+  <div class="notice">If playback is unavailable or restricted, <a href="{{ resource.url }}" target="_blank" rel="noopener">open {{ 'the original video file' if resource.player_type == 'file' else 'the original on ' ~ resource.provider }} ↗</a>.</div>
+  <a class="btn secondary" href="/resources?course={{ resource.course | urlencode }}">More resources for this course →</a>
+</div>
+{% endblock %}

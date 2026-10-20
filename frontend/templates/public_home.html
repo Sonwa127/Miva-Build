@@ -1,0 +1,17 @@
+{% extends 'public_base.html' %}
+{% block content %}
+<section class="hero">
+  <div class="eyebrow">A little extra help, for all of us</div>
+  <h1>Your next study session<br>starts here.</h1>
+  <p>Lecture PDFs, helpful videos, and extra explanations, brought together for our class. No subscriptions. No student sign-up. Just resources to help us understand more.</p>
+  <div class="card-actions"><a class="btn" href="/resources">Explore free resources →</a><a class="btn secondary" href="/courses">Find your course</a></div>
+  <div class="stats-strip"><span><strong>{{ courses | length }}</strong> courses</span><span><strong>{{ documents | length }}</strong> readings</span><span><strong>{{ resources | selectattr('is_video') | list | length }}</strong> videos & playlists</span></div>
+</section>
+<div class="section-heading"><h2>Find your course</h2><a href="/courses">All courses →</a></div>
+<div class="resource-grid">{% include '_course_cards.html' %}</div>
+<div class="section-heading"><h2>Read, watch, understand</h2><a href="/resources">All resources →</a></div>
+<div class="resource-grid">
+  {% set documents = documents[:3] %}{% set resources = resources[:3] %}{% include '_resource_cards.html' %}
+  {% if not documents and not resources %}<div class="empty-state">New readings and videos will appear here as they are added.</div>{% endif %}
+</div>
+{% endblock %}

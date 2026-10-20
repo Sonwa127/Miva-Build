@@ -77,10 +77,33 @@ def test_ingest_search_dedupe_remove(env):
     ingest_pdf(pdf, store, course="Demo", force=True)
     assert store.count() == count_before          # force re-ingest does not duplicate
 
+    # A stale registry must not make ingestion skip a missing vector index.
+    store.delete_doc(res.doc_id)
+    repaired = ingest_pdf(pdf, store, course="Demo")
+    assert repaired.status == "ingested"
+    assert store.count_doc(res.doc_id) == repaired.chunks
+
     assert [d.doc_id for d in registry.list_all()] == [res.doc_id]
     store.delete_doc(res.doc_id)
     assert registry.remove(res.doc_id)
     assert store.count() == 0
+
+
+def test_offline_search_finds_exact_terms_and_rejects_unrelated_topic(env):
+    from archive.chunker import Chunk
+    from archive.store import VectorStore
+
+    store = VectorStore()
+    store.add_chunks("physics", "Mechanics", "PHY101", [
+        Chunk(2, 0, "Newton's second law states that force equals mass times acceleration.", ""),
+        Chunk(3, 0, "Velocity describes how an object's position changes over time.", ""),
+    ])
+
+    relevant = store.search("State Newton's second law", course="PHY101", k=1)
+    unrelated = store.search("Explain quantum superposition in nuclear physics", course="PHY101", k=1)
+
+    assert relevant[0].page == 2 and relevant[0].score >= 0.30
+    assert unrelated[0].score < 0.30
 
 
 def test_blank_pdf_reports_empty(env):

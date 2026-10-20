@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.code }}: {{ course.name }} — StudyArchive{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6 max-w-7xl mx-auto">
+  <!-- Breadcrumb Navigation -->
+  <nav class="flex items-center gap-2 text-xs text-outline font-medium">
+    <a href="/courses" class="hover:text-primary transition-colors flex items-center gap-1">
+      <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+      <span>Back to Course Library</span>
+    </a>
+    <span>/</span>
+    <span class="text-on-surface-variant">Courses</span>
+    <span>/</span>
+    <span class="text-on-surface font-semibold">{{ course.code }}: {{ course.name }}</span>
+  </nav>
+
+  <!-- Course Header Card -->
+  <section class="p-6 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-5">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div class="flex items-start gap-4">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-700 text-white flex flex-col items-center justify-center font-bold shrink-0 shadow-md">
+          <span class="text-[10px] uppercase tracking-wider opacity-80">DEPT</span>
+          <span class="text-lg leading-tight">{{ course.code.split(' ')[-1] if ' ' in course.code else course.code }}</span>
+          <span class="text-[9px] bg-indigo-900 px-1.5 rounded-full mt-0.5">LIVE</span>
+        </div>
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-2xl font-bold text-on-surface">{{ course.code }}: {{ course.name }}</h1>
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">{{ course.credits }} Credits</span>
+            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800">{{ course.term }}</span>
+          </div>
+          <p class="text-xs text-on-surface-variant max-w-2xl leading-relaxed">
+            {{ course.description or 'Asymptotic complexity, balanced search trees (AVL, Red-Black), graph algorithms, dynamic programming.' }}
+          </p>
+          <div class="text-[11px] text-outline font-medium mt-1">
+            {{ course.instructor }} • {{ course.schedule }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-3 self-start lg:self-auto shrink-0">
+        <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-on-surface border border-[#e2e8f0] text-xs font-semibold transition-colors">
+          <span class="material-symbols-outlined text-[16px] text-primary">upload_file</span>
+          <span>+ Upload Material</span>
+        </button>
+        <a href="/ask?course_id={{ course.code }}" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+          <span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+          <span>Ask AI About {{ course.code }}</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Stats Bar -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-[#f2f3ff] text-xs">
+      <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
+        <span class="material-symbols-outlined text-indigo-600 text-[18px]">description</span>
+        <div>
+          <div class="font-bold text-on-surface" id="courseDocCount">0 Documents</div>
+          <div class="text-[10px] text-outline" id="coursePageCount">0 pages indexed</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
+        <span class="material-symbols-outlined text-teal-600 text-[18px]">verified</span>
+        <div>
+          <div class="font-bold text-on-surface" id="courseMastery">Mastery: 0%</div>
+          <div class="text-[10px] text-outline">Active retention</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
+        <span class="material-symbols-outlined text-purple-600 text-[18px]">style</span>
+        <div>
+          <div class="font-bold text-on-surface" id="courseCardsCount">0 Cards</div>
+          <div class="text-[10px] text-amber-700 font-semibold" id="courseDueCards">0 due today</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200">
+        <span class="material-symbols-outlined text-slate-600 text-[18px]">schedule</span>
+        <div>
+          <div class="font-bold text-on-surface">Term: {{ course.term or 'Active' }}</div>
+          <div class="text-[10px] text-outline">{{ course.schedule or 'Independent study' }}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Real-Time Vectorizing Status Banner (Dynamic) -->
+  <div id="vectorizingBanner" class="p-4 rounded-xl bg-teal-50 border border-teal-200 shadow-sm flex items-center justify-between gap-4 hidden">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-teal-700 text-white flex items-center justify-center animate-spin">
+        <span class="material-symbols-outlined text-[18px]">autorenew</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-teal-900" id="vecBannerTitle">Processing Document in Real-Time</span>
+          <span class="text-[10px] font-semibold bg-teal-200 text-teal-800 px-2 py-0.5 rounded-full" id="vecBannerStatus">Indexing</span>
+        </div>
+        <span class="text-[11px] text-teal-700" id="vecBannerDetail">OCR extraction & RAG vector chunking active</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main 2-Column Section: Left Tabs/Documents, Right Study Tools Sidecar -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left 2 Cols: Tabs & Materials List -->
+    <div class="lg:col-span-2 flex flex-col gap-4">
+      <!-- Tabs Navigation -->
+      <div class="flex items-center gap-2 p-1 rounded-xl bg-slate-100 border border-[#e2e8f0] text-xs font-semibold overflow-x-auto">
+        <button onclick="switchTab('materials')" id="tabMaterialsBtn" class="px-3.5 py-1.5 rounded-lg bg-white shadow-sm text-on-surface flex items-center gap-1.5 shrink-0">
+          <span class="material-symbols-outlined text-[16px]">folder</span>
+          <span>Course Materials</span>
+          <span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full text-[10px]" id="materialsCountBadge">0</span>
+        </button>
+        <button onclick="switchTab('summaries')" id="tabSummariesBtn" class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface flex items-center gap-1.5 shrink-0">
+          <span class="material-symbols-outlined text-[16px]">article</span>
+          <span>AI Summaries & Digests</span>
+        </button>
+        <button onclick="switchTab('glossary')" id="tabGlossaryBtn" class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface flex items-center gap-1.5 shrink-0">
+          <span class="material-symbols-outlined text-[16px]">menu_book</span>
+          <span>Concept Glossary</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Course Materials -->
+      <div id="tabMaterials" class="flex flex-col gap-3">
+        <!-- Sub-filter pills -->
+        <div class="flex items-center gap-2 text-xs font-medium">
+          <button class="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 font-bold" id="docSubfilterAll">All (0)</button>
+        </div>
+
+        <!-- Document List -->
+        <div class="flex flex-col gap-3" id="courseDocsList">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Summaries (Hidden by default) -->
+      <div id="tabSummaries" class="hidden flex flex-col gap-3">
+        <div id="summariesList" class="flex flex-col gap-3">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- Tab 3: Concept Glossary (Hidden by default) -->
+      <div id="tabGlossary" class="hidden flex flex-col gap-3">
+        <div id="glossaryList" class="flex flex-col gap-3">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Right 1 Col: Active Study Tools Sidecar -->
+    <div class="flex flex-col gap-5">
+      <!-- Active Study Tools Widget -->
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs">
+              <span class="material-symbols-outlined text-[16px]">psychology</span>
+            </div>
+            <div>
+              <h3 class="text-xs font-bold text-on-surface">Active Study Tools</h3>
+              <p class="text-[10px] text-outline">{{ course.code }} Context Preserved</p>
+            </div>
+          </div>
+          <span class="text-[10px] font-semibold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">Active</span>
+        </div>
+
+        <!-- Tool 1: Active Recall Decks -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-[#e2e8f0] flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-indigo-600 text-[18px]">style</span>
+              <span class="text-xs font-bold text-on-surface">Active Recall Decks</span>
+            </div>
+            <span class="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded" id="sidecarDueBadge">0 Due</span>
+          </div>
+          <p class="text-[11px] text-on-surface-variant" id="sidecarCardSummary">Spaced repetition cards generated from lecture materials.</p>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px] font-semibold text-on-surface" id="sidecarMasteryLabel">Mastery: 0%</span>
+            <a href="/study?course_id={{ course.code }}" class="px-3 py-1 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors">Start Review →</a>
+          </div>
+        </div>
+
+        <!-- Tool 2: Grounded card generation -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-[#e2e8f0] flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-teal-600 text-[18px]">quiz</span>
+              <span class="text-xs font-bold text-on-surface">Grounded Card Generator</span>
+            </div>
+            <span class="text-[10px] font-semibold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">Adaptive</span>
+          </div>
+          <p class="text-[11px] text-on-surface-variant">Synthesize active-recall questions directly from indexed course material.</p>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px] font-semibold text-on-surface">Source-grounded</span>
+            <a href="/study?course_id={{ course.code }}#generatorContainer" class="px-3 py-1 rounded-lg bg-secondary text-white text-xs font-semibold hover:bg-teal-800 transition-colors">Generate Cards →</a>
+          </div>
+        </div>
+
+        <!-- Tool 3: Chapter Summaries -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-[#e2e8f0] flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-slate-700 text-[18px]">article</span>
+              <span class="text-xs font-bold text-on-surface">Chapter Summaries</span>
+            </div>
+            <span class="text-[10px] font-semibold text-teal-800 bg-teal-100 px-1.5 py-0.5 rounded">Digest</span>
+          </div>
+          <p class="text-[11px] text-on-surface-variant">High-yield takeaway digests synthesized from your lectures.</p>
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px] text-outline">Study cheat sheets</span>
+            <button onclick="switchTab('summaries')" class="px-3 py-1 rounded-lg bg-slate-200 text-on-surface text-xs font-semibold hover:bg-slate-300 transition-colors">Read Digest</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grounded Verification Box -->
+      <div class="p-4 rounded-xl bg-teal-50/60 border border-teal-200 flex flex-col gap-1.5 text-xs">
+        <div class="flex items-center gap-1 text-secondary font-bold">
+          <span class="material-symbols-outlined text-[16px]">verified</span>
+          <span>GROUNDED VERIFICATION • 100% SOURCED</span>
+        </div>
+        <p class="text-on-surface-variant text-[11px] leading-relaxed">
+          All AI responses in {{ course.code }} are strictly restricted to your uploaded lecture PDFs. Zero hallucination guaranteed.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Material Modal -->
+<div id="uploadModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm hidden">
+  <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl p-6 flex flex-col gap-4 border border-[#e2e8f0]">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base font-bold text-on-surface">Upload to {{ course.code }}</h3>
+      <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="p-1 rounded-lg text-outline">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <form id="courseUploadForm" class="flex flex-col gap-3.5">
+      <input type="hidden" name="course" value="{{ course.code }}"/>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface mb-1">PDF File *</label>
+        <input type="file" name="file" accept=".pdf" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-container file:text-white hover:file:bg-primary cursor-pointer" required/>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="ocr" id="modalOcr" class="rounded text-primary-container"/>
+        <label for="modalOcr" class="text-xs text-on-surface-variant">Enable OCR for scanned pages</label>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold text-outline">Cancel</button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold">Upload & Index</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const courseCode = {{ course.code | tojson }};
+
+function switchTab(tab) {
+  ['materials', 'summaries', 'glossary'].forEach(t => {
+    const el = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+    const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+    if (el) el.classList.toggle('hidden', t !== tab);
+    if (btn) {
+      if (t === tab) {
+        btn.className = "px-3.5 py-1.5 rounded-lg bg-white shadow-sm text-on-surface flex items-center gap-1.5 shrink-0";
+      } else {
+        btn.className = "px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface flex items-center gap-1.5 shrink-0";
+      }
+    }
+  });
+}
+
+async function loadMaterials() {
+  const container = document.getElementById("courseDocsList");
+  try {
+    const docs = await api(`/api/documents?course=${encodeURIComponent(courseCode)}`);
+    const count = docs.length;
+    const totalPages = docs.reduce((sum, d) => sum + (d.page_count || 0), 0);
+
+    document.getElementById("courseDocCount").innerText = `${count} Document${count === 1 ? '' : 's'}`;
+    document.getElementById("coursePageCount").innerText = `${totalPages} page${totalPages === 1 ? '' : 's'} indexed`;
+    document.getElementById("materialsCountBadge").innerText = count;
+    document.getElementById("docSubfilterAll").innerText = `All (${count})`;
+
+    if (count === 0) {
+      container.innerHTML = `
+        <div class="p-8 rounded-2xl bg-surface-container-lowest border border-dashed border-[#cbd5e1] text-center flex flex-col items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 text-outline flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">upload_file</span>
+          </div>
+          <div class="text-sm font-bold text-on-surface">No Materials Uploaded Yet</div>
+          <p class="text-xs text-on-surface-variant max-w-sm">Upload lecture slides, problem sets, or readings to enable OCR, semantic vector indexing, and AI-assisted study.</p>
+          <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="px-3.5 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors">
+            + Upload First Document
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = docs.map(d => `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-xl bg-red-50 text-red-700 flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-on-surface truncate">${escapeHtml(d.filename || d.title)}</span>
+              <span class="text-[10px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full shrink-0">100% Vectorized</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-on-surface-variant mt-0.5">
+              <span class="text-indigo-700 font-semibold">${d.chunk_count} Chunks</span>
+              <span>${d.page_count} pages</span>
+              <span>${d.ingested_at ? new Date(d.ingested_at).toLocaleDateString() : 'Active'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="/viewer/${encodeURIComponent(d.doc_id)}?page=1" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+            <span class="material-symbols-outlined text-[16px]">visibility</span>
+            <span>Open PDF Viewer</span>
+          </a>
+          <button onclick="deleteDoc(this.dataset.docId)" data-doc-id="${escapeAttr(d.doc_id)}" class="p-1.5 rounded-lg text-outline hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete Material">
+            <span class="material-symbols-outlined text-[16px]">delete</span>
+          </button>
+        </div>
+      </div>
+    `).join("");
+  } catch (err) {
+    container.innerHTML = `<div class="p-4 text-xs text-red-700 bg-red-50 rounded-xl">Error loading materials: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadSummaries() {
+  const container = document.getElementById("summariesList");
+  try {
+    const list = await api(`/api/study/summaries?course_id=${encodeURIComponent(courseCode)}`);
+    if (!list || list.length === 0) {
+      container.innerHTML = `
+        <div class="p-8 rounded-2xl bg-surface-container-lowest border border-dashed border-[#cbd5e1] text-center flex flex-col items-center gap-2">
+          <span class="material-symbols-outlined text-outline text-3xl">article</span>
+          <div class="text-sm font-bold text-on-surface">No Chapter Summaries Generated Yet</div>
+          <p class="text-xs text-on-surface-variant max-w-sm">Summaries and chapter digests will be created when lecture slides are uploaded and processed.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map(s => `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-on-surface">${escapeHtml(s.title)}</h3>
+          <span class="text-xs text-outline">${escapeHtml(s.chapter || 'Course Lecture')}</span>
+        </div>
+        <p class="text-xs text-on-surface-variant leading-relaxed whitespace-pre-wrap">${escapeHtml(s.summary_text)}</p>
+        ${s.key_concepts && s.key_concepts.length ? `
+          <div class="flex items-center gap-2 mt-2 pt-2 border-t border-[#f2f3ff] flex-wrap">
+            ${s.key_concepts.map(k => `<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">${escapeHtml(k)}</span>`).join("")}
+          </div>
+        ` : ''}
+      </div>
+    `).join("");
+  } catch (err) {
+    console.error("Error loading summaries:", err);
+  }
+}
+
+async function loadGlossary() {
+  const container = document.getElementById("glossaryList");
+  try {
+    const list = await api(`/api/study/glossary?course_id=${encodeURIComponent(courseCode)}`);
+    if (!list || list.length === 0) {
+      container.innerHTML = `
+        <div class="p-8 rounded-2xl bg-surface-container-lowest border border-dashed border-[#cbd5e1] text-center flex flex-col items-center gap-2">
+          <span class="material-symbols-outlined text-outline text-3xl">menu_book</span>
+          <div class="text-sm font-bold text-on-surface">No Glossary Terms Extracted Yet</div>
+          <p class="text-xs text-on-surface-variant max-w-sm">Glossary terms and citations are automatically extracted from course documents.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map(g => `
+      <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-bold text-on-surface">${escapeHtml(g.term)}</span>
+          ${g.source_page ? `<span class="text-xs text-secondary font-semibold">Page ${g.source_page}</span>` : ''}
+        </div>
+        <p class="text-xs text-on-surface-variant">${escapeHtml(g.definition)}</p>
+      </div>
+    `).join("");
+  } catch (err) {
+    console.error("Error loading glossary:", err);
+  }
+}
+
+async function loadStudyStats() {
+  try {
+    const stats = await api(`/api/study/flashcards/stats?course_id=${encodeURIComponent(courseCode)}`);
+    const total = stats.total || 0;
+    const due = stats.due_today || 0;
+    const mastery = Math.round(stats.retention_rate || 0);
+
+    document.getElementById("courseCardsCount").innerText = `${total} Card${total === 1 ? '' : 's'}`;
+    document.getElementById("courseDueCards").innerText = `${due} due today`;
+    document.getElementById("courseMastery").innerText = `Mastery: ${mastery}%`;
+    document.getElementById("sidecarDueBadge").innerText = `${due} Due Today`;
+    document.getElementById("sidecarCardSummary").innerText = `${total} cards scheduled with SM-2 spaced repetition.`;
+    document.getElementById("sidecarMasteryLabel").innerText = `Mastery: ${mastery}%`;
+  } catch (err) {
+    console.error("Error loading study stats:", err);
+  }
+}
+
+async function deleteDoc(docId) {
+  if (!confirm(`Are you sure you want to remove this document from the course index?`)) return;
+  try {
+    await api(`/api/documents/${docId}`, "DELETE");
+    showToast("Document removed successfully.");
+    loadMaterials();
+    loadStudyStats();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadMaterials();
+  loadSummaries();
+  loadGlossary();
+  loadStudyStats();
+
+  const form = document.getElementById("courseUploadForm");
+  if (form) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const banner = document.getElementById("vectorizingBanner");
+      if (banner) banner.classList.remove("hidden");
+      const formData = new FormData(form);
+      try {
+        const res = await api("/api/documents/upload", "POST", formData);
+        showToast(`Indexed ${res.title} (${res.chunk_count} chunks)`);
+        document.getElementById("uploadModal").classList.add("hidden");
+        form.reset();
+        loadMaterials();
+        loadSummaries();
+        loadGlossary();
+        loadStudyStats();
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        if (banner) banner.classList.add("hidden");
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

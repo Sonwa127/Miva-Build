@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — StudyArchive{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6 max-w-7xl mx-auto">
+  <!-- 1. Header & Greeting Area -->
+  <section class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-1">
+    <div class="flex flex-col gap-1.5">
+      <div class="flex items-center gap-2.5">
+        <h1 class="text-3xl font-bold text-on-surface tracking-tight">Good day, Scholar <span class="animate-wave">👋</span></h1>
+        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold shadow-sm">
+          <span class="material-symbols-outlined text-[15px] text-secondary">local_fire_department</span>
+          <span id="streakBadge">0-Day Streak</span>
+        </span>
+      </div>
+      <p class="text-sm text-on-surface-variant max-w-2xl">
+        Welcome to your smart course archive and study assistant. Upload lecture notes, synthesize active-recall flashcards, and ask citation-grounded questions.
+      </p>
+    </div>
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-3">
+      <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-sm font-medium transition-all border border-[#e2e8f0] shadow-sm">
+        <span class="material-symbols-outlined text-[18px] text-primary">upload_file</span>
+        <span>Upload Course PDF</span>
+      </button>
+      <a href="/ask" class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-on-primary text-sm font-semibold transition-all shadow-md">
+        <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+        <span>Ask AI Assistant</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- 2. Workspace Overview Metric Cards -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <!-- Active Workspace -->
+    <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-outline uppercase tracking-wider">Active Workspace</span>
+        <span class="material-symbols-outlined text-primary text-[22px]">menu_book</span>
+      </div>
+      <div class="my-3">
+        <div class="text-3xl font-bold text-on-surface" id="statCoursesCount">0</div>
+        <div class="text-xs text-on-surface-variant mt-0.5">Courses Enrolled</div>
+      </div>
+      <div class="flex items-center gap-2 text-xs text-on-surface-variant pt-2 border-t border-[#f2f3ff]">
+        <span class="material-symbols-outlined text-[16px] text-secondary">description</span>
+        <span id="statDocsCount">0 documents indexed</span>
+        <a href="/courses" class="ml-auto text-[11px] font-semibold text-primary hover:underline">+ Add Course</a>
+      </div>
+    </div>
+
+    <!-- Time Invested -->
+    <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-outline uppercase tracking-wider">Time Invested</span>
+        <div class="w-8 h-8 rounded-full border-2 border-indigo-200 border-t-indigo-600 flex items-center justify-center text-[11px] font-bold text-indigo-700" id="timeInvestedPct">0%</div>
+      </div>
+      <div class="my-3 flex items-baseline gap-2">
+        <div class="text-3xl font-bold text-on-surface"><span id="statHours">0.0</span> <span class="text-sm font-normal text-on-surface-variant">hrs</span></div>
+        <div class="text-xs font-semibold text-outline">Active sessions</div>
+      </div>
+      <div class="flex items-center justify-between text-xs text-on-surface-variant pt-2 border-t border-[#f2f3ff]">
+        <div class="w-full bg-[#eaedff] h-2 rounded-full overflow-hidden mr-3">
+          <div id="statHoursBar" class="bg-primary-container h-full rounded-full" style="width: 0%;"></div>
+        </div>
+        <span class="shrink-0 text-[11px] text-outline">Target: 10 hrs</span>
+      </div>
+    </div>
+
+    <!-- Active Recall Queue -->
+    <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-outline uppercase tracking-wider">Active Recall Queue</span>
+        <span class="material-symbols-outlined text-amber-600 text-[22px]">notifications_active</span>
+      </div>
+      <div class="my-3 flex items-baseline justify-between">
+        <div>
+          <div class="text-3xl font-bold text-on-surface" id="statDueCards">0</div>
+          <div class="text-xs text-on-surface-variant mt-0.5">Flashcards Due Today</div>
+        </div>
+        <span class="text-xs font-semibold text-outline bg-slate-100 px-2.5 py-1 rounded-full" id="statPendingDecks">0 decks pending</span>
+      </div>
+      <div class="flex items-center justify-between text-xs pt-2 border-t border-[#f2f3ff]">
+        <span class="text-outline text-[11px]">SM-2 Spaced Repetition</span>
+        <a href="/study" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+          <span>Review Now</span>
+          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Main Dashboard Layout (2 Columns: Left Workspaces, Right Activity) -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column (2 Cols wide): Continue Learning & Study Modes -->
+    <div class="lg:col-span-2 flex flex-col gap-6">
+      <!-- Continue Learning Section -->
+      <section class="flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold text-on-surface">Continue Learning</h2>
+          <a href="/courses" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+            <span>Manage Courses</span>
+            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </a>
+        </div>
+
+        <!-- Dynamic Course Cards Container -->
+        <div id="continueLearningContainer" class="flex flex-col gap-3">
+          <!-- Populated dynamically via JavaScript -->
+        </div>
+      </section>
+
+      <!-- Quick Study Modes -->
+      <section class="flex flex-col gap-3">
+        <h2 class="text-xl font-bold text-on-surface">Quick Study Modes</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <!-- Flashcards Mode -->
+          <div class="p-4 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="material-symbols-outlined text-indigo-600 text-[26px]">style</span>
+              <span class="text-[11px] font-semibold text-outline bg-slate-100 px-2 py-0.5 rounded-full">SM-2</span>
+            </div>
+            <div>
+              <div class="text-sm font-bold text-on-surface">Review Flashcards</div>
+              <p class="text-xs text-on-surface-variant mt-0.5">Spaced repetition review across your active courses.</p>
+            </div>
+            <a href="/study" class="w-full text-center py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+              Review Now →
+            </a>
+          </div>
+
+          <!-- Take a Quiz Mode -->
+          <div class="p-4 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="material-symbols-outlined text-teal-600 text-[26px]">quiz</span>
+              <span class="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">Adaptive</span>
+            </div>
+            <div>
+              <div class="text-sm font-bold text-on-surface">Take a Quiz</div>
+              <p class="text-xs text-on-surface-variant mt-0.5">Practice quizzes grounded in verified lecture notes.</p>
+            </div>
+            <a href="/study" class="w-full text-center py-2 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-teal-800 transition-colors shadow-sm">
+              Start Quiz →
+            </a>
+          </div>
+
+          <!-- Executive Summary Mode -->
+          <div class="p-4 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between gap-3">
+            <div class="flex items-center justify-between">
+              <span class="material-symbols-outlined text-slate-700 text-[26px]">article</span>
+              <span class="text-[11px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">AI Digest</span>
+            </div>
+            <div>
+              <div class="text-sm font-bold text-on-surface">Read a Summary</div>
+              <p class="text-xs text-on-surface-variant mt-0.5">Key takeaways, core definitions, and exam cheat sheets.</p>
+            </div>
+            <a href="/courses" class="w-full text-center py-2 rounded-xl bg-slate-100 text-on-surface text-xs font-semibold hover:bg-slate-200 transition-colors">
+              Browse Summaries →
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Sidebar Column: Recent Activity & Grounded Spotlight -->
+    <div class="flex flex-col gap-6">
+      <!-- Recent Activity Feed -->
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-on-surface">Recent Activity</h3>
+          <span class="text-xs text-outline">Real-Time</span>
+        </div>
+        <div class="flex flex-col gap-3.5" id="recentActivityContainer">
+          <!-- Populated dynamically via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Grounded Citation Spotlight -->
+      <div class="p-5 rounded-2xl bg-teal-50/50 border border-teal-200 shadow-sm flex flex-col gap-2.5">
+        <div class="flex items-center gap-1.5 text-xs font-semibold text-secondary">
+          <span class="material-symbols-outlined text-[16px]">verified</span>
+          <span>GROUNDED CITATION SPOTLIGHT</span>
+        </div>
+        <p class="text-xs text-on-surface-variant leading-relaxed">
+          Upload your course lecture PDFs to index verbatim slides and enable page-level citations in answers and active-recall flashcards.
+        </p>
+        <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="text-xs font-semibold text-secondary hover:underline flex items-center gap-1 mt-1 text-left">
+          <span>+ Upload Lecture PDF</span>
+          <span class="material-symbols-outlined text-[15px]">arrow_forward</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Upload Course PDF Modal -->
+<div id="uploadModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm hidden">
+  <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl p-6 flex flex-col gap-4 border border-[#e2e8f0]">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-primary-container text-white flex items-center justify-center">
+          <span class="material-symbols-outlined text-[20px]">upload_file</span>
+        </div>
+        <h3 class="text-base font-bold text-on-surface">Upload Course Material</h3>
+      </div>
+      <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="p-1 rounded-lg hover:bg-slate-100 text-outline">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <form id="uploadForm" class="flex flex-col gap-3.5">
+      <div>
+        <label class="block text-xs font-semibold text-on-surface mb-1">Target Course Code</label>
+        <select name="course" id="uploadCourse" class="w-full px-3 py-2 text-sm rounded-lg border border-[#e2e8f0] bg-white focus:ring-2 focus:ring-primary-container focus:outline-none" required>
+          <option value="">Select an enrolled course...</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-on-surface mb-1">PDF File</label>
+        <input type="file" name="file" id="uploadFile" accept=".pdf" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-container file:text-white hover:file:bg-primary cursor-pointer" required/>
+      </div>
+      <div class="flex items-center gap-2 pt-1">
+        <input type="checkbox" name="ocr" id="uploadOcr" class="rounded text-primary-container focus:ring-0"/>
+        <label for="uploadOcr" class="text-xs text-on-surface-variant">Enable OCR for scanned slides with image layers</label>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-[#e2e8f0]">
+        <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-xs font-semibold text-outline hover:bg-slate-100">Cancel</button>
+        <button type="submit" id="submitUploadBtn" class="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+          <span class="material-symbols-outlined text-[16px]">cloud_upload</span>
+          <span>Index & Vectorize</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  // Load live dashboard telemetry
+  try {
+    const data = await api("/api/analytics/dashboard");
+    if (data) {
+      if (document.getElementById("statCoursesCount")) document.getElementById("statCoursesCount").innerText = data.active_courses;
+      if (document.getElementById("statDocsCount")) document.getElementById("statDocsCount").innerText = `${data.documents_indexed} documents indexed`;
+      if (document.getElementById("statDueCards")) document.getElementById("statDueCards").innerText = data.flashcards_due;
+      if (document.getElementById("statHours")) document.getElementById("statHours").innerText = data.time_invested_hours.toFixed(1);
+      if (document.getElementById("streakBadge")) document.getElementById("streakBadge").innerText = `${data.streak_days}-Day Streak`;
+
+      const pct = Math.min(100, Math.round((data.time_invested_hours / 10) * 100));
+      if (document.getElementById("timeInvestedPct")) document.getElementById("timeInvestedPct").innerText = `${pct}%`;
+      if (document.getElementById("statHoursBar")) document.getElementById("statHoursBar").style.width = `${pct}%`;
+
+      // Render recent activity
+      const activityCont = document.getElementById("recentActivityContainer");
+      if (activityCont) {
+        if (!data.recent_activity || data.recent_activity.length === 0) {
+          activityCont.innerHTML = `
+            <div class="text-center py-6 text-outline text-xs">
+              <span class="material-symbols-outlined text-2xl mb-1 text-slate-300">history</span>
+              <p>No recent activity recorded yet.</p>
+              <p class="text-[11px] mt-0.5">Upload a PDF or ask AI a question to begin.</p>
+            </div>
+          `;
+        } else {
+          activityCont.innerHTML = data.recent_activity.map(a => `
+            <div class="flex items-start gap-3">
+              <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">${a.type === 'quiz' ? 'quiz' : (a.type === 'flashcard' ? 'style' : 'description')}</span>
+              </div>
+              <div class="flex flex-col min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold text-on-surface">${escapeHtml(a.title)}</span>
+                  <span class="text-[10px] text-outline">${escapeHtml(a.timestamp)}</span>
+                </div>
+                <span class="text-[11px] text-on-surface-variant truncate">${escapeHtml(a.detail)}</span>
+              </div>
+            </div>
+          `).join("");
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Could not load telemetry:", e);
+  }
+
+  // Load enrolled courses for continue learning
+  try {
+    const courses = await api("/api/courses");
+    const container = document.getElementById("continueLearningContainer");
+    const uploadCourse = document.getElementById("uploadCourse");
+    if (uploadCourse) {
+      uploadCourse.innerHTML = `<option value="">Select an enrolled course...</option>` + courses.map(c =>
+        `<option value="${escapeAttr(c.code)}">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</option>`
+      ).join("");
+    }
+    if (container) {
+      if (!courses || courses.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm text-center flex flex-col items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+              <span class="material-symbols-outlined text-2xl">school</span>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-on-surface">No Courses Enrolled Yet</h3>
+              <p class="text-xs text-on-surface-variant max-w-md mt-1">
+                Enroll a course to start indexing lecture notes, generating active-recall flashcards, and running dynamic quizzes.
+              </p>
+            </div>
+            <a href="/courses" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+              + Enroll Course in Library
+            </a>
+          </div>
+        `;
+      } else {
+        container.innerHTML = courses.slice(0, 3).map(c => `
+          <div class="p-4 rounded-xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-indigo-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                ${escapeHtml(c.code.slice(0, 3))}
+              </div>
+              <div class="flex flex-col min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-indigo-700">${escapeHtml(c.code)}</span>
+                  <span class="text-[10px] font-semibold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full capitalize">${escapeHtml(c.status)}</span>
+                </div>
+                <h3 class="text-xs font-bold text-on-surface truncate">${escapeHtml(c.name)}</h3>
+                <span class="text-[11px] text-on-surface-variant truncate">${c.stats?.doc_count || 0} documents indexed</span>
+              </div>
+            </div>
+            <a href="/courses/${c.id}" class="px-3.5 py-1.5 rounded-lg bg-slate-50 border border-[#e2e8f0] hover:bg-slate-100 text-xs font-semibold text-on-surface shrink-0">
+              Open Course →
+            </a>
+          </div>
+        `).join("");
+      }
+    }
+  } catch (e) {
+    console.warn("Could not load courses:", e);
+  }
+
+  // Handle PDF upload
+  const uploadForm = document.getElementById("uploadForm");
+  if (uploadForm) {
+    uploadForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("submitUploadBtn");
+      btn.disabled = true;
+      btn.innerText = "Indexing PDF...";
+
+      const formData = new FormData(uploadForm);
+      try {
+        const res = await api("/api/documents/upload", "POST", formData);
+        showToast(`Document "${res.title}" indexed successfully with ${res.chunk_count} chunks!`);
+        document.getElementById("uploadModal").classList.add("hidden");
+        uploadForm.reset();
+        setTimeout(() => location.reload(), 1200);
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[16px]">cloud_upload</span><span>Index & Vectorize</span>`;
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

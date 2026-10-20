@@ -25,9 +25,13 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 DATA_DIR = Path(os.getenv("ARCHIVE_DATA_DIR", "data")).resolve()
 CHROMA_DIR = DATA_DIR / "chroma"
 REGISTRY_DB = DATA_DIR / "registry.sqlite"
+APP_DB = DATA_DIR / "app.sqlite"
 USERS_DB = DATA_DIR / "users.sqlite"
 
-COLLECTION_NAME = "course_chunks"
+
+# Bump the collection name when the embedding algorithm changes. Keeping the old
+# collection makes migrations recoverable instead of deleting a user's index.
+COLLECTION_NAME = "course_chunks_v2"
 
 # Chunking: chunks never cross a page boundary, so every chunk maps to exactly
 # one page and page-level citations are always exact.
@@ -40,7 +44,7 @@ OCR_MIN_CHARS = 40
 ENABLE_OCR = os.getenv("ARCHIVE_ENABLE_OCR", "0") == "1"
 
 # Question answering
-LLM_PROVIDER = os.getenv("ARCHIVE_LLM_PROVIDER", "mistral")   # mistral, openai or ollama
+LLM_PROVIDER = os.getenv("ARCHIVE_LLM_PROVIDER", "offline")   # offline, mistral, openai or ollama
 LLM_MODEL = os.getenv("ARCHIVE_LLM_MODEL", "")                # empty = the provider's default
 ANSWER_CHUNKS = int(os.getenv("ARCHIVE_ANSWER_CHUNKS", "6"))  # excerpts sent to the model
 # If the best search match scores below this, we do not call the model at all.

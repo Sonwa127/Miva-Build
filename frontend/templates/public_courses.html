@@ -1,0 +1,29 @@
+{% extends 'public_base.html' %}
+{% block title %}Courses · StudyArchive{% endblock %}
+{% block content %}
+<section class="page-heading"><div><div class="eyebrow">Our shared library</div><h1>Find your course.</h1><p>Extra readings, videos, and explanations to complement what we learn in class.</p></div><span class="free-badge">Free for every classmate</span></section>
+<form class="filters" onsubmit="return false"><input aria-label="Search courses" id="courseSearch" type="search" placeholder="Search by course code, name, or topic…"><select aria-label="Sort courses" id="courseSort"><option value="code">Course code (A–Z)</option><option value="name">Course name (A–Z)</option></select></form>
+<div class="resource-grid" id="courseGrid">{% include '_course_cards.html' %}</div>
+<p id="courseEmpty" class="empty-state" hidden>No courses match your search.</p>
+{% endblock %}
+{% block extra_scripts %}<script>
+const search = document.getElementById('courseSearch');
+search.value = new URLSearchParams(location.search).get('q') || '';
+function filterCourses() {
+  let count = 0;
+  document.querySelectorAll('[data-course-search]').forEach(card => {
+    card.hidden = !card.dataset.courseSearch.includes(search.value.trim().toLowerCase());
+    if (!card.hidden) count++;
+  });
+  document.getElementById('courseEmpty').hidden = count > 0 || !search.value.trim();
+}
+search.addEventListener('input', filterCourses);
+document.getElementById('courseSort').addEventListener('change', event => {
+  const grid = document.getElementById('courseGrid');
+  Array.from(grid.querySelectorAll('.course-card')).sort((a,b) => {
+    const selector = event.target.value === 'name' ? 'h2' : '.course-code';
+    return a.querySelector(selector).textContent.localeCompare(b.querySelector(selector).textContent, undefined, {numeric:true});
+  }).forEach(card => grid.appendChild(card));
+});
+filterCourses();
+</script>{% endblock %}

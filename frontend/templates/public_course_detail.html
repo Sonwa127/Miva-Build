@@ -1,0 +1,19 @@
+{% extends 'public_base.html' %}
+{% block title %}{{ course.code }} · {{ course.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="/courses">Courses</a> / {{ course.code }}</div>
+<section class="page-heading"><div><div class="eyebrow">{{ course.code }} · Free course companion</div><h1>{{ course.name }}</h1><p>{{ course.description or 'Additional resources to help you follow along, revise, and understand the course.' }}</p></div><a href="/ask?course_id={{ course.code | urlencode }}" class="btn secondary">Ask about this course</a></section>
+<div class="section-heading"><h2>Readings, videos & useful links</h2><span class="muted">{{ documents | length + resources | length }} resources</span></div>
+<div class="resource-grid">{% include '_resource_cards.html' %}{% if not documents and not resources %}<div class="empty-state">Resources for this course are being prepared. Check back soon.</div>{% endif %}</div>
+{% if summaries %}
+<div class="section-heading"><h2>Quick revision notes</h2></div>
+<div class="admin-list">
+{% for summary in summaries %}<details class="panel"><summary style="font-weight:750;cursor:pointer">{{ summary.title }}</summary><div class="reader-text" style="margin-top:16px">{{ summary.summary_text }}</div><div class="card-actions" style="margin-top:12px">{% for page in summary.source_pages %}<a class="btn secondary small" href="/viewer/{{ summary.doc_id }}?page={{ page }}">Source · page {{ page }}</a>{% endfor %}</div></details>{% endfor %}
+</div>
+{% endif %}
+{% if glossary %}
+<div class="section-heading"><h2>Key terms, explained</h2></div>
+<div class="resource-grid">{% for term in glossary %}<article class="resource-card"><h3>{{ term.term }}</h3><p>{{ term.definition }}</p>{% if term.source_page %}<a href="/viewer/{{ term.doc_id }}?page={{ term.source_page }}" class="btn secondary small">Source · page {{ term.source_page }}</a>{% endif %}</article>{% endfor %}</div>
+{% endif %}
+<div class="notice" style="margin-top:28px">Looking for more? <a href="/resources">Browse the full library</a>, including general study resources.</div>
+{% endblock %}

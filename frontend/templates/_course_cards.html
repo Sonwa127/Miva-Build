@@ -1,0 +1,8 @@
+{% for course in courses %}
+<article class="course-card" data-course-search="{{ (course.code ~ ' ' ~ course.name ~ ' ' ~ course.description) | lower }}">
+  <span class="course-code">{{ course.code }}</span>
+  <h2>{{ course.name }}</h2>
+  <p>{{ course.description or 'Lecture readings, video explanations, and extra resources for this course.' }}</p>
+  <a class="btn secondary small" href="/courses/{{ course.id }}">Explore course →</a>
+</article>
+{% else %}<div class="empty-state">Course resources are being prepared. Check back soon.</div>{% endfor %}

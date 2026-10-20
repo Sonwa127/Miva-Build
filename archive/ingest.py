@@ -27,9 +27,13 @@ def ingest_pdf(path: Path, store: VectorStore, course: str = "",
         sha = file_sha256(path)
         existing = registry.get_by_hash(sha)
         if existing and not force:
-            return IngestResult(path, "skipped", existing.doc_id, detail="already ingested")
-        if existing and force:
-            store.delete_doc(existing.doc_id)
+            stored_chunks = store.count_doc(existing.doc_id)
+            if stored_chunks == existing.chunk_count and stored_chunks > 0:
+                return IngestResult(
+                    path, "skipped", existing.doc_id,
+                    existing.page_count, existing.chunk_count,
+                    detail="already ingested and index verified",
+                )
 
         doc_id = sha[:12]
         meta, pages = parse_pdf(path, enable_ocr)
@@ -38,6 +42,10 @@ def ingest_pdf(path: Path, store: VectorStore, course: str = "",
             return IngestResult(path, "empty", doc_id,
                                 detail="no extractable text (scanned? try --ocr)")
 
+        # Parse and chunk successfully before replacing the old vector entries.
+        # This avoids destroying a working index when PDF parsing fails.
+        if existing or force:
+            store.delete_doc(doc_id)
         store.add_chunks(doc_id, meta["title"], course, chunks)
         registry.add(registry.DocRecord(
             doc_id=doc_id, sha256=sha, title=meta["title"], course=course,

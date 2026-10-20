@@ -55,6 +55,13 @@ def get_by_hash(sha256: str) -> DocRecord | None:
     return DocRecord(**row) if row else None
 
 
+def get(doc_id: str) -> DocRecord | None:
+    """Return a document by its public ID."""
+    with _conn() as c:
+        row = c.execute("SELECT * FROM documents WHERE doc_id = ?", (doc_id,)).fetchone()
+    return DocRecord(**row) if row else None
+
+
 def add(rec: DocRecord) -> None:
     with _conn() as c:
         c.execute(

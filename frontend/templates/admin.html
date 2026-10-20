@@ -1,0 +1,159 @@
+{% extends 'public_base.html' %}
+{% block title %}Resource administration · StudyArchive{% endblock %}
+{% block content %}
+<section class="page-heading"><div><div class="eyebrow">Administrator workspace</div><h1>Share something useful.</h1><p>Manage every PDF, video, course, and extra resource here. Published resources are freely available to your classmates.</p></div><div class="card-actions"><a class="btn secondary" href="/resources" target="_blank">View student library ↗</a><button type="button" class="btn secondary" id="logoutBtn">Sign out</button></div></section>
+<div class="admin-layout">
+  <div class="admin-forms">
+    <section class="panel" id="publishPanel">
+      <h2 id="resourceFormTitle">Add a video, playlist, or link</h2>
+      <form id="resourceForm" style="margin-top:18px">
+        <input name="id" type="hidden">
+        <div class="field"><label for="resourceKind">Resource type</label><select name="kind" id="resourceKind"><option value="video">Video / playlist (detect automatically)</option><option value="link">Useful website / reference</option></select></div>
+        <div class="field"><label for="resourceTitle">Title</label><input name="title" id="resourceTitle" required maxlength="200" placeholder="e.g. Understanding Newton’s laws"></div>
+        <div class="field"><label for="resourceUrl">Video, playlist, or website link</label><input name="url" id="resourceUrl" type="url" required maxlength="2048" placeholder="https://vimeo.com/showcase/…"><small>YouTube videos/playlists, Vimeo videos/showcases, Loom recordings, Dailymotion player URLs, and HTTPS MP4/WebM files play here. Paste a URL, not iframe HTML.</small></div>
+        <div class="field"><label for="resourceCourse">Course</label><select name="course" id="resourceCourse"><option value="">General resources</option>{% for course in courses %}<option value="{{ course.code }}">{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="resourceDescription">What will this help with?</label><textarea name="description" id="resourceDescription" maxlength="5000" placeholder="Add a short description or study tip."></textarea></div>
+        <p class="error-message" id="resourceError" role="alert"></p>
+        <div class="card-actions"><button class="btn" type="submit" id="resourceSave">Publish resource</button><button class="btn secondary" type="reset" id="cancelResource" hidden>Cancel edit</button></div>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Upload a PDF</h2>
+      <p class="muted" style="font-size:13px;margin:8px 0 18px">Original pages keep their formatting. Text is also indexed for course questions.</p>
+      <form id="pdfForm">
+        <div class="field"><label for="pdfCourse">Course</label><select name="course" id="pdfCourse" required><option value="">Select course…</option>{% for course in courses %}<option value="{{ course.code }}">{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="pdfFile">PDF file</label><input name="file" id="pdfFile" type="file" accept="application/pdf,.pdf" required></div>
+        <div class="field"><label><input name="ocr" type="checkbox" value="true">Enable OCR for scanned pages</label></div>
+        <p class="error-message" id="pdfError" role="alert"></p><p class="muted" id="pdfStatus" role="status"></p>
+        <button class="btn" type="submit">Upload & publish PDF</button>
+      </form>
+    </section>
+    <section class="panel" id="coursePanel">
+      <h2 id="courseFormTitle">Add a course</h2>
+      <form id="courseForm" style="margin-top:18px">
+        <input name="id" type="hidden">
+        <div class="field"><label for="courseCode">Course code</label><input name="code" id="courseCode" required maxlength="100" placeholder="e.g. PHY 101"></div>
+        <div class="field"><label for="courseName">Course name</label><input name="name" id="courseName" required maxlength="200"></div>
+        <div class="field"><label for="courseDescription">Description</label><textarea name="description" id="courseDescription" maxlength="5000"></textarea></div>
+        <p class="error-message" id="courseError" role="alert"></p>
+        <div class="card-actions"><button class="btn" type="submit">Save course</button><button class="btn secondary" type="reset" id="cancelCourse" hidden>Cancel edit</button></div>
+      </form>
+    </section>
+    <section class="panel" id="studyTools">
+      <h2>Publish study tools</h2>
+      <p class="muted" style="font-size:13px;margin:8px 0 18px">Generate shared study material from an indexed PDF.</p>
+      <form id="studyPublishForm">
+        <div class="field"><label for="studyDoc">Source PDF</label><select id="studyDoc" name="doc_id" required><option value="">Select a PDF…</option>{% for document in documents %}<option value="{{ document.doc_id }}" data-course="{{ document.course }}">{{ document.course }} · {{ document.title }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="studyKind">Study material</label><select id="studyKind" name="kind"><option value="flashcards">Flashcards</option><option value="summaries">Summary</option><option value="glossary">Glossary</option></select></div>
+        <p class="error-message" id="studyError" role="alert"></p><p class="success-message" id="studySuccess" role="status"></p>
+        <button class="btn" type="submit">Generate & publish</button>
+      </form>
+    </section>
+  </div>
+  <div>
+    <div class="admin-tabs" role="tablist" aria-label="Manage library">
+      <button class="btn secondary small" type="button" role="tab" id="tab-resources" aria-controls="section-resources" aria-selected="true" data-admin-tab="resources">Videos & links ({{ resources | length }})</button>
+      <button class="btn secondary small" type="button" role="tab" id="tab-pdfs" aria-controls="section-pdfs" aria-selected="false" data-admin-tab="pdfs">PDFs ({{ documents | length }})</button>
+      <button class="btn secondary small" type="button" role="tab" id="tab-courses" aria-controls="section-courses" aria-selected="false" data-admin-tab="courses">Courses ({{ courses | length }})</button>
+    </div>
+    <section class="admin-section admin-list" id="section-resources" role="tabpanel" aria-labelledby="tab-resources">
+      {% for resource in resources %}<article class="admin-item"><div><span class="resource-tag">{{ resource.provider }}{{ ' playlist' if resource.is_playlist else '' }} · {{ resource.course or 'General' }}</span><h3 style="margin-top:8px">{{ resource.title }}</h3><small>{{ resource.description | truncate(160) }}</small></div><div class="card-actions">{% if resource.is_video %}<a class="btn secondary small" href="/watch/{{ resource.id }}" target="_blank" rel="noopener">Preview</a>{% endif %}<button type="button" class="btn secondary small" data-edit-resource="{{ resource.id }}">Edit</button><button type="button" class="btn danger small" data-delete-resource="{{ resource.id }}">Delete</button></div></article>{% else %}<div class="empty-state">Your published videos, playlists, and links will appear here. Paste a video or playlist link to add the first one.</div>{% endfor %}
+    </section>
+    <section class="admin-section admin-list" id="section-pdfs" role="tabpanel" aria-labelledby="tab-pdfs" hidden>
+      {% for document in documents %}<article class="admin-item"><div><span class="resource-tag pdf">{{ document.course or 'Unassigned' }}</span><h3 style="margin-top:8px">{{ document.filename }}</h3><small>{{ document.page_count }} pages · {{ document.chunk_count }} indexed chunks</small></div><div class="card-actions"><a class="btn secondary small" href="/viewer/{{ document.doc_id }}" target="_blank">Preview</a><button type="button" class="btn danger small" data-delete-document="{{ document.doc_id }}">Remove</button></div></article>{% else %}<div class="empty-state">Upload a PDF to publish your first reading.</div>{% endfor %}
+    </section>
+    <section class="admin-section admin-list" id="section-courses" role="tabpanel" aria-labelledby="tab-courses" hidden>
+      {% for course in courses %}<article class="admin-item"><div><span class="resource-tag">{{ course.code }}</span><h3 style="margin-top:8px">{{ course.name }}</h3><small>{{ course.description | truncate(130) }}</small></div><div class="card-actions"><button type="button" class="btn secondary small" data-edit-course="{{ course.id }}">Edit</button><button type="button" class="btn danger small" data-delete-course="{{ course.id }}">Delete</button></div></article>{% else %}<div class="empty-state">Add a course before uploading PDFs.</div>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script>
+const libraryResources = {{ resources | tojson }};
+const libraryCourses = {{ courses | map(attribute='__dict__') | list | tojson }};
+function bindForm(id, errorId, action) {
+  const form = document.getElementById(id);
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = form.querySelector('[type=submit]');
+    button.disabled = true;
+    document.getElementById(errorId).textContent = '';
+    try { await action(form); }
+    catch (error) { document.getElementById(errorId).textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+}
+bindForm('resourceForm', 'resourceError', async form => {
+  const values = Object.fromEntries(new FormData(form));
+  const id = values.id; delete values.id;
+  await api(id ? `/api/resources/${encodeURIComponent(id)}` : '/api/resources', id ? 'PUT' : 'POST', values);
+  location.reload();
+});
+bindForm('pdfForm', 'pdfError', async form => {
+  document.getElementById('pdfStatus').textContent = 'Uploading and indexing. Please keep this page open…';
+  try { await api('/api/documents/upload', 'POST', new FormData(form)); location.reload(); }
+  finally { document.getElementById('pdfStatus').textContent = ''; }
+});
+bindForm('courseForm', 'courseError', async form => {
+  const values = Object.fromEntries(new FormData(form));
+  const id = values.id; delete values.id;
+  if (id) delete values.code;
+  await api(id ? `/api/courses/${encodeURIComponent(id)}` : '/api/courses', id ? 'PUT' : 'POST', values);
+  location.reload();
+});
+bindForm('studyPublishForm', 'studyError', async form => {
+  const select = form.elements.doc_id;
+  const kind = form.elements.kind.value;
+  document.getElementById('studySuccess').textContent = 'Generating study material…';
+  try {
+    await api(`/api/study/${kind}/generate`, 'POST', {doc_id:select.value, course_id:select.selectedOptions[0].dataset.course});
+    document.getElementById('studySuccess').textContent = 'Published. Your classmates can now use this study material.';
+  } catch (error) { document.getElementById('studySuccess').textContent = ''; throw error; }
+});
+document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-admin-tab]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button)));
+  document.querySelectorAll('.admin-section').forEach(panel => panel.hidden = panel.id !== `section-${button.dataset.adminTab}`);
+}));
+document.querySelectorAll('[data-edit-resource]').forEach(button => button.addEventListener('click', () => {
+  const resource = libraryResources.find(item => item.id === button.dataset.editResource);
+  const form = document.getElementById('resourceForm');
+  ['id','title','url','course','description'].forEach(key => form.elements[key].value = resource[key]);
+  form.elements.kind.value = resource.is_video ? 'video' : 'link';
+  document.getElementById('resourceFormTitle').textContent = 'Edit resource';
+  document.getElementById('resourceSave').textContent = 'Save changes';
+  document.getElementById('cancelResource').hidden = false;
+  document.getElementById('publishPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.getElementById('resourceForm').addEventListener('reset', () => {
+  document.getElementById('resourceFormTitle').textContent = 'Add a video, playlist, or link';
+  document.getElementById('resourceSave').textContent = 'Publish resource';
+  document.getElementById('cancelResource').hidden = true;
+  document.getElementById('resourceForm').elements.id.value = '';
+});
+document.querySelectorAll('[data-edit-course]').forEach(button => button.addEventListener('click', () => {
+  const course = libraryCourses.find(item => item.id === button.dataset.editCourse);
+  const form = document.getElementById('courseForm');
+  ['id','code','name','description'].forEach(key => form.elements[key].value = course[key]);
+  form.elements.code.readOnly = true;
+  document.getElementById('courseFormTitle').textContent = 'Edit course';
+  document.getElementById('cancelCourse').hidden = false;
+  document.getElementById('coursePanel').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.getElementById('courseForm').addEventListener('reset', () => {
+  const form = document.getElementById('courseForm');
+  form.elements.id.value = ''; form.elements.code.readOnly = false;
+  document.getElementById('courseFormTitle').textContent = 'Add a course';
+  document.getElementById('cancelCourse').hidden = true;
+});
+[['resource','resources'],['document','documents'],['course','courses']].forEach(([kind, endpoint]) => {
+  document.querySelectorAll(`[data-delete-${kind}]`).forEach(button => button.addEventListener('click', async () => {
+    if (!confirm('Remove this from the shared library?')) return;
+    button.disabled = true;
+    try { await api(`/api/${endpoint}/${encodeURIComponent(button.getAttribute(`data-delete-${kind}`))}`, 'DELETE'); location.reload(); }
+    catch (error) { showToast(error.message, 'error'); button.disabled = false; }
+  }));
+});
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await api('/api/admin/logout', 'POST'); location.replace('/admin/login');
+});
+</script>{% endblock %}

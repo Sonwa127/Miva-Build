@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>PDF Reader — {{ document.title }}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="/static/css/tailwind.generated.css"/>
+  <link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body class="bg-[#f8fafc] font-sans text-on-surface antialiased h-screen flex flex-col overflow-hidden">
+
+  <!-- Top App Navigation Bar -->
+  <header class="h-14 bg-white border-b border-[#e2e8f0] px-5 flex items-center justify-between shrink-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-indigo-700 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+        <span class="material-symbols-outlined text-[18px]">menu_book</span>
+      </div>
+      <span class="text-sm font-bold text-on-surface">ArchiveCore Reader</span>
+      <span class="text-xs text-outline">•</span>
+      <span class="text-xs text-on-surface-variant font-medium truncate max-w-xs">{{ document.title }}</span>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs font-semibold mr-2">
+        <button class="px-3 py-1 rounded bg-white shadow-sm text-on-surface">Reading Pane</button>
+        <a href="/courses" class="px-3 py-1 rounded text-outline hover:text-on-surface">Course Archive</a>
+      </div>
+      <button onclick="askAboutCurrentPage()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+        <span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+        <span>Ask AI About Page <span id="btnPageNum">{{ initial_page }}</span></span>
+      </button>
+      <a href="/" class="p-1.5 rounded-lg text-outline hover:bg-slate-100 hover:text-on-surface" title="Close Reader">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Secondary Meta Bar -->
+  <div class="h-10 bg-white border-b border-[#e2e8f0] px-5 flex items-center justify-between text-xs text-outline shrink-0">
+    <div class="flex items-center gap-2">
+      <a href="/courses" class="hover:text-primary transition-colors flex items-center gap-1 font-semibold">
+        <span class="material-symbols-outlined text-[14px]">arrow_back</span>
+        <span>Back to Course Overview</span>
+      </a>
+      <span>/</span>
+      <span class="text-on-surface font-semibold">{{ document.filename }}</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">description</span> {{ document.page_count }} Pages</span>
+      <span class="flex items-center gap-1 text-teal-700 font-semibold bg-teal-50 px-2 py-0.5 rounded"><span class="material-symbols-outlined text-[14px]">verified</span> {{ document.chunk_count }} Text Chunks Indexed</span>
+    </div>
+  </div>
+
+  <!-- Main Split Layout (Left: Slide Canvas, Right: Inspector Dock) -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- Left Reading Area -->
+    <div class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+      <!-- Viewer Controls Toolbar -->
+      <div class="h-11 bg-white border-b border-[#e2e8f0] px-6 flex items-center justify-between text-xs shrink-0">
+        <!-- Pagination -->
+        <div class="flex items-center gap-2">
+          <button onclick="prevPage()" class="p-1 rounded hover:bg-slate-100 text-outline"><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>
+          <span>Page</span>
+          <input type="number" id="pageInput" value="{{ initial_page }}" min="1" max="{{ document.page_count }}" onchange="goToPage(this.value)" class="w-12 text-center py-0.5 border border-[#e2e8f0] rounded text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-600"/>
+          <span>of {{ document.page_count }}</span>
+          <button onclick="nextPage()" class="p-1 rounded hover:bg-slate-100 text-outline"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>
+        </div>
+
+        <!-- Zoom & Tools -->
+        <div class="flex items-center gap-2">
+          <div class="flex items-center bg-slate-100 rounded-lg p-0.5">
+            <button onclick="zoomOut()" class="p-1 hover:bg-white rounded"><span class="material-symbols-outlined text-[16px]">remove</span></button>
+            <span class="px-2 font-semibold text-[11px]" id="zoomText">100%</span>
+            <button onclick="zoomIn()" class="p-1 hover:bg-white rounded"><span class="material-symbols-outlined text-[16px]">add</span></button>
+          </div>
+          <button type="button" onclick="fitWidth()" class="px-2.5 py-1 rounded-lg border border-[#e2e8f0] hover:bg-slate-50 font-semibold text-[11px]">Fit Width</button>
+          <button type="button" onclick="fitPage()" class="px-2.5 py-1 rounded-lg border border-[#e2e8f0] hover:bg-slate-50 font-semibold text-[11px]">Fit Page</button>
+          <button type="button" onclick="copyPageCitation()" class="flex items-center gap-1 px-3 py-1 rounded-lg bg-teal-50 text-teal-800 border border-teal-200 font-semibold text-[11px]">
+            <span class="material-symbols-outlined text-[14px]">content_copy</span>
+            <span>Copy Citation</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Slide Canvas Container (Scrollable) -->
+      <div id="viewerCanvas" class="flex-1 overflow-auto p-6 flex justify-center">
+        <!-- White Slide Sheet (16:9 ratio style) -->
+        <div id="slideSheet" class="w-full max-w-4xl bg-white rounded-2xl shadow-lg border border-[#e2e8f0] p-8 md:p-12 flex flex-col justify-between gap-6 transition-transform">
+          <!-- Document Header -->
+          <div class="flex items-center justify-between border-b border-[#f2f3ff] pb-4">
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-bold px-2 py-1 bg-indigo-700 text-white rounded-md">{{ document.course or 'Course' }}</span>
+              <span class="text-xs font-semibold text-on-surface">{{ document.title }}</span>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-outline">
+              <span class="truncate max-w-xs">{{ document.filename }}</span>
+              <span class="font-bold text-on-surface">Page <span id="canvasSlideNum">{{ initial_page }}</span></span>
+            </div>
+          </div>
+
+          <!-- Page content is loaded from the indexed document API. -->
+          <div id="slideDynamicContent" class="flex flex-col gap-6" aria-live="polite">
+            <div class="p-8 rounded-xl bg-slate-50 border border-[#e2e8f0] text-center">
+              <div class="text-sm font-bold text-on-surface">Loading indexed page text…</div>
+            </div>
+          </div>
+
+          <!-- Document Footer -->
+          <div class="flex items-center justify-between pt-4 border-t border-[#f2f3ff] text-[11px] text-outline">
+            <span>{{ document.title }}</span>
+            <span>{{ document.course or 'Unassigned course' }} • {{ document.chunk_count }} indexed chunks</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Inspector Dock (Outline / Citations / Ask AI) -->
+    <div class="w-80 lg:w-96 bg-white border-l border-[#e2e8f0] flex flex-col shrink-0">
+      <!-- Inspector Tabs -->
+      <div class="h-11 border-b border-[#e2e8f0] flex items-center justify-around px-2 text-xs font-semibold shrink-0">
+        <button onclick="switchDockTab('outline')" id="dockOutlineBtn" class="py-2 px-3 border-b-2 border-indigo-700 text-indigo-700">Outline</button>
+        <button onclick="switchDockTab('citations')" id="dockCitationsBtn" class="py-2 px-3 text-outline hover:text-on-surface">Source</button>
+        <button onclick="switchDockTab('ask')" id="dockAskBtn" class="py-2 px-3 text-outline hover:text-on-surface flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+          <span>Ask AI</span>
+        </button>
+      </div>
+
+      <!-- Tab: Page outline -->
+      <div id="dockOutline" class="flex-1 overflow-auto p-4 flex flex-col gap-1">
+        <div class="text-xs font-bold text-on-surface mb-2">Pages ({{ document.page_count }})</div>
+        <div class="flex flex-col text-xs gap-1">
+          {% for page_no in range(1, document.page_count + 1) %}
+          <button type="button" onclick="goToPage({{ page_no }})" data-outline-page="{{ page_no }}" class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 text-on-surface-variant text-left">
+            <span>Page {{ page_no }}</span>
+            <span class="text-outline">p. {{ page_no }}</span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Tab: Indexed source information -->
+      <div id="dockCitations" class="hidden flex-1 overflow-auto p-4 flex flex-col gap-3">
+        <div class="text-xs font-bold text-on-surface">Indexed Source</div>
+        <div class="p-3 rounded-lg bg-slate-50 border border-[#e2e8f0] text-xs flex flex-col gap-1">
+          <div class="flex items-center justify-between font-bold text-indigo-700">
+            <span>{{ document.title }}</span>
+            <span class="text-teal-700">{{ document.chunk_count }} chunks</span>
+          </div>
+          <p class="text-on-surface-variant text-[11px]">{{ document.filename }}</p>
+          <p class="text-on-surface-variant text-[11px]">Current citation: page <span id="sourcePageNum">{{ initial_page }}</span> of {{ document.page_count }}</p>
+          <button type="button" onclick="copyPageCitation()" class="mt-2 px-3 py-1.5 rounded-lg bg-teal-50 text-teal-800 border border-teal-200 font-semibold">Copy current page citation</button>
+        </div>
+      </div>
+
+      <!-- Tab: Ask AI (Embedded assistant) -->
+      <div id="dockAsk" class="hidden flex-1 flex flex-col justify-between p-4 overflow-hidden">
+        <div class="flex flex-col gap-3 overflow-auto">
+          <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-xs">
+            <div class="font-bold text-teal-900 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[15px]">verified</span>
+              <span>Grounding: Slide <span id="askSlideNum">{{ initial_page }}</span> Only</span>
+            </div>
+            <p class="text-[11px] text-teal-800 mt-1">Queries asked here are strictly grounded in this page's text.</p>
+          </div>
+
+          <div id="dockAiReplies" class="flex flex-col gap-2 text-xs">
+            <!-- Messages stream here -->
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-[#e2e8f0] flex flex-col gap-2">
+          <textarea id="dockAiInput" rows="2" placeholder="Ask anything about this page..." class="w-full p-2 text-xs rounded-xl border border-[#e2e8f0] focus:ring-2 focus:ring-primary-container focus:outline-none resize-none"></textarea>
+          <button onclick="sendDockAiQuery()" class="w-full py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors flex items-center justify-center gap-1">
+            <span>Ask Page AI</span>
+            <span class="material-symbols-outlined text-[14px]">send</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    const documentId = {{ doc_id | tojson }};
+    const documentTitle = {{ document.title | tojson }};
+    const totalPages = {{ document.page_count }};
+    let currentPage = {{ initial_page }};
+    let currentZoom = 100;
+
+    async function goToPage(p) {
+      currentPage = Math.min(totalPages, Math.max(1, parseInt(p) || 1));
+      const requestedPage = currentPage;
+      document.getElementById("pageInput").value = currentPage;
+      document.getElementById("btnPageNum").innerText = currentPage;
+      document.getElementById("canvasSlideNum").innerText = currentPage;
+      const askNum = document.getElementById("askSlideNum");
+      if (askNum) askNum.innerText = currentPage;
+      const sourceNum = document.getElementById("sourcePageNum");
+      if (sourceNum) sourceNum.innerText = currentPage;
+      document.querySelectorAll("[data-outline-page]").forEach(button => {
+        const active = Number(button.dataset.outlinePage) === currentPage;
+        button.className = active
+          ? "flex items-center justify-between p-2 rounded-lg bg-indigo-50 text-indigo-900 font-bold border border-indigo-200 text-left"
+          : "flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 text-on-surface-variant text-left";
+      });
+      const pageUrl = new URL(window.location.href);
+      pageUrl.searchParams.set("page", currentPage);
+      window.history.replaceState({}, "", pageUrl);
+
+      try {
+        const res = await api(`/api/documents/${encodeURIComponent(documentId)}/pages/${requestedPage}`);
+        if (requestedPage !== currentPage) return;
+        if (res && res.content && res.content.length > 0) {
+          document.getElementById("slideDynamicContent").innerHTML = `
+            <div class="flex flex-col gap-4">
+              <div class="text-xs font-bold text-teal-700 uppercase tracking-wider">DOCUMENT CONTENT • PAGE ${requestedPage}</div>
+              <div class="p-6 rounded-xl bg-slate-50 border border-[#e2e8f0] text-sm text-on-surface leading-relaxed whitespace-pre-wrap font-sans">
+${escapeHtml(res.content.join('\n\n'))}
+              </div>
+            </div>
+          `;
+        } else {
+          document.getElementById("slideDynamicContent").innerHTML = `
+            <div class="p-8 rounded-xl bg-slate-50 border border-[#e2e8f0] text-center">
+              <div class="text-sm font-bold text-on-surface">No extractable text on page ${requestedPage}</div>
+              <p class="text-xs text-on-surface-variant mt-1">This page may contain only images. Re-upload the document with OCR enabled to index it.</p>
+            </div>
+          `;
+        }
+      } catch (err) {
+        if (requestedPage !== currentPage) return;
+        document.getElementById("slideDynamicContent").innerHTML = `
+          <div class="p-6 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+            Could not load this page: ${escapeHtml(err.message)}
+          </div>
+        `;
+      }
+    }
+
+    function prevPage() { goToPage(currentPage - 1); }
+    function nextPage() { goToPage(currentPage + 1); }
+
+    function zoomIn() {
+      currentZoom = Math.min(150, currentZoom + 10);
+      applyZoom();
+    }
+    function zoomOut() {
+      currentZoom = Math.max(70, currentZoom - 10);
+      applyZoom();
+    }
+    function applyZoom() {
+      document.getElementById("zoomText").innerText = currentZoom + "%";
+      const sheet = document.getElementById("slideSheet");
+      sheet.style.transformOrigin = "top center";
+      sheet.style.transform = `scale(${currentZoom / 100})`;
+    }
+
+    function fitWidth() {
+      const canvas = document.getElementById("viewerCanvas");
+      const sheet = document.getElementById("slideSheet");
+      const availableWidth = Math.max(1, canvas.clientWidth - 48);
+      currentZoom = Math.max(40, Math.min(150, Math.floor((availableWidth / sheet.offsetWidth) * 100)));
+      applyZoom();
+    }
+
+    function fitPage() {
+      const canvas = document.getElementById("viewerCanvas");
+      const sheet = document.getElementById("slideSheet");
+      const widthScale = (Math.max(1, canvas.clientWidth - 48) / sheet.offsetWidth) * 100;
+      const heightScale = (Math.max(1, canvas.clientHeight - 48) / sheet.offsetHeight) * 100;
+      currentZoom = Math.max(40, Math.min(150, Math.floor(Math.min(widthScale, heightScale))));
+      applyZoom();
+    }
+
+    async function copyPageCitation() {
+      const viewerUrl = new URL(`/viewer/${encodeURIComponent(documentId)}?page=${currentPage}`, window.location.origin);
+      const citation = `${documentTitle}, page ${currentPage} (${viewerUrl})`;
+      try {
+        await navigator.clipboard.writeText(citation);
+      } catch (_) {
+        const temporary = document.createElement("textarea");
+        temporary.value = citation;
+        temporary.setAttribute("readonly", "");
+        temporary.style.position = "fixed";
+        temporary.style.opacity = "0";
+        document.body.appendChild(temporary);
+        temporary.select();
+        document.execCommand("copy");
+        temporary.remove();
+      }
+      showToast("Page citation copied");
+    }
+
+    function switchDockTab(tab) {
+      ['outline', 'citations', 'ask'].forEach(t => {
+        const el = document.getElementById(`dock${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btn = document.getElementById(`dock${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+        if (el) el.classList.toggle('hidden', t !== tab);
+        if (btn) {
+          if (t === tab) {
+            btn.className = "py-2 px-3 border-b-2 border-indigo-700 text-indigo-700";
+          } else {
+            btn.className = "py-2 px-3 text-outline hover:text-on-surface";
+          }
+        }
+      });
+    }
+
+    function askAboutCurrentPage() {
+      switchDockTab('ask');
+      const input = document.getElementById("dockAiInput");
+      if (input) {
+        input.value = `Explain the key invariant and steps on page ${currentPage}`;
+        input.focus();
+      }
+    }
+
+    async function sendDockAiQuery() {
+      const input = document.getElementById("dockAiInput");
+      const q = input.value.trim();
+      if (!q) return;
+
+      const container = document.getElementById("dockAiReplies");
+      container.innerHTML += `<div class="p-2 rounded bg-indigo-50 text-indigo-900 font-medium">Q: ${escapeHtml(q)}</div><div class="p-2 rounded bg-slate-50 text-slate-700 animate-pulse">Consulting page text...</div>`;
+      input.value = "";
+
+      try {
+        const res = await api("/api/qa/ask", "POST", { question: q, doc_id: documentId });
+        container.lastElementChild.className = "p-2 rounded bg-slate-50 text-slate-800 leading-relaxed border border-[#e2e8f0]";
+        container.lastElementChild.innerText = res.answer;
+      } catch (e) {
+        container.lastElementChild.innerText = "Error: " + e.message;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => goToPage(currentPage));
+  </script>
+</body>
+</html>

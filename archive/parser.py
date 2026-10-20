@@ -5,6 +5,7 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import unquote_plus
 
 import pymupdf as fitz  # PyMuPDF (the old "import fitz" name is deprecated)
 
@@ -59,8 +60,9 @@ _DIGITS = re.compile(r"\d+")
 
 
 def _clean_title(title: str) -> str:
-    """Drop a leftover file extension such as '.docx' from a document title."""
-    return _EXT_AT_END.sub("", title).strip() or title.strip()
+    """Decode URL-style filenames and drop leftover document extensions."""
+    decoded = unquote_plus(title).strip()
+    return _EXT_AT_END.sub("", decoded).strip() or decoded
 
 
 def _norm(line: str) -> str:

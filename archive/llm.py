@@ -90,11 +90,98 @@ class ChatCompletionsLLM:
             raise LLMError("The AI service sent a reply in a format we did not expect.") from None
 
 
-def get_llm(provider: str | None = None, model: str | None = None) -> ChatCompletionsLLM:
+class OfflineLLM:
+    """Offline deterministic LLM emulator for offline development and testing without external cloud credentials."""
+
+    def __init__(self, model: str = "offline-local"):
+        self.model = model
+
+    def complete(self, system: str, user: str, temperature: float = 0.1, max_tokens: int = 600) -> str:
+        import json
+        import re
+        sys_lower = system.lower()
+        user_lower = user.lower()
+
+        # Flashcards generation
+        if "flashcard" in sys_lower or "active-recall" in sys_lower:
+            lines = [line.strip() for line in user.splitlines() if len(line.strip()) > 20]
+            cards = []
+            for i, line in enumerate(lines[:5], 1):
+                clean_text = re.sub(r'\[.*?\]', '', line).strip()
+                cards.append({
+                    "question": f"Explain the key concept in: {clean_text[:60]}...",
+                    "answer": clean_text[:200],
+                    "page": i
+                })
+            if not cards:
+                cards = [
+                    {"question": "What is the primary theorem or principle in this material?", "answer": "The material establishes core algorithmic and conceptual guarantees for optimal performance.", "page": 1}
+                ]
+            return json.dumps(cards)
+
+        # Quizzes generation
+        if "quiz" in sys_lower or "multiple-choice" in sys_lower:
+            quiz_qs = [
+                {
+                    "question": "Which of the following best describes the asymptotic complexity guarantee in this unit?",
+                    "choices": ["O(log n) worst-case", "O(n^2) average-case", "O(1) unbounded", "O(n!) non-deterministic"],
+                    "answer": "O(log n) worst-case",
+                    "explanation": "Balanced search trees and divide-and-conquer structures maintain logarithmic worst-case bounds.",
+                    "source_page": 1
+                },
+                {
+                    "question": "Under what condition is a recoloring phase applied rather than a rotation?",
+                    "choices": ["When the uncle node is RED", "When the tree height is zero", "When the root is deleted", "When leaf nodes are distinct"],
+                    "answer": "When the uncle node is RED",
+                    "explanation": "If the uncle is RED, Property 4 violations are resolved strictly by color inversion without tree rotations.",
+                    "source_page": 2
+                }
+            ]
+            return json.dumps(quiz_qs)
+
+        # Summaries generation
+        if "summary" in sys_lower or "chapter digest" in sys_lower:
+            return json.dumps({
+                "title": "Comprehensive Lecture Digest",
+                "summary": "This lecture covers foundational invariants, structural balancing techniques, and algorithmic analysis. Students master asymptotic tradeoffs and core proof techniques.",
+                "key_concepts": ["Balanced Trees", "Invariant Maintenance", "Asymptotic Analysis", "Divide & Conquer"]
+            })
+
+        # Glossary generation
+        if "glossary" in sys_lower or "term" in sys_lower:
+            return json.dumps([
+                {"term": "Black-Height", "definition": "The number of black nodes on any simple path from a node to descendant leaves.", "source_page": 1},
+                {"term": "Rotation", "definition": "A local operation in a binary search tree that preserves in-order key traversal while altering height.", "source_page": 2}
+            ])
+
+        # Semantic answer evaluation & boilerplate detection
+        if "evaluate" in sys_lower or "grade" in sys_lower or "rubric" in sys_lower:
+            is_boilerplate = any(w in user_lower for w in ["delve", "testament", "tapestry", "in summary,", "it is important to note"])
+            return json.dumps({
+                "overall_score": 8.5,
+                "rubric_breakdown": {"Accuracy": 9.0, "Clarity": 8.0, "Depth": 8.5},
+                "missing_concepts": ["Edge cases involving degenerate trees"],
+                "is_ai_boilerplate": is_boilerplate,
+                "boilerplate_signals": ["Common repetitive synthetic transition detected"] if is_boilerplate else [],
+                "feedback": "Strong conceptual understanding demonstrated. Well-reasoned explanation matching the course syllabus."
+            })
+
+        # Standard Q&A
+        return (
+            "Based on the retrieved course material, this topic is explained by the "
+            "definitions and examples in the cited excerpt [1]. Review that page for the "
+            "exact wording and apply the stated steps or invariant to the question."
+        )
+
+
+def get_llm(provider: str | None = None, model: str | None = None):
     provider = (provider or config.LLM_PROVIDER).lower()
+    if provider == "offline":
+        return OfflineLLM()
+
     preset = PROVIDERS.get(provider)
     if preset is None:
-        raise LLMError(f"Unknown provider '{provider}'. Choose one of: {', '.join(PROVIDERS)}.")
+        raise LLMError(f"Unknown provider '{provider}'. Choose one of: {', '.join(PROVIDERS)}, offline.")
 
     key = None
     if preset["key_env"]:

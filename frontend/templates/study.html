@@ -1,0 +1,658 @@
+{% extends "public_base.html" %}
+
+{% block title %}Study & Flashcard Hub — StudyArchive{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6 max-w-7xl mx-auto">
+  <!-- Top Header Area -->
+  <section class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="text-xs font-semibold text-secondary uppercase tracking-wider">Academic Spaced-Repetition System</div>
+      <h1 class="text-3xl font-bold text-on-surface tracking-tight mt-0.5">Flashcard Hub & Study Sets</h1>
+      <p class="text-sm text-on-surface-variant">Review free flashcard decks prepared from our course materials. Your progress stays on this device.</p>
+    </div>
+    <div class="flex items-center gap-3 self-start md:self-auto flex-wrap">
+      <a href="/api/study/flashcards/export" download class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-[#e2e8f0] text-xs font-semibold text-on-surface hover:bg-slate-100 transition-colors">
+        <span class="material-symbols-outlined text-[16px]">download</span>
+        <span>Export for Anki (.tsv)</span>
+        <span class="text-[9px] bg-slate-200 px-1 rounded">BETA</span>
+      </a>
+      <button onclick="startReviewQueue()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-teal-800 transition-colors shadow-sm">
+        <span class="material-symbols-outlined text-[16px]">school</span>
+        <span>Study All Due Cards (<span id="topDueCount">0</span>)</span>
+      </button>
+      {% if is_admin %}<a href="/admin#studyTools" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-md">
+        <span class="material-symbols-outlined text-[16px]">add</span>
+        <span>+ Generate New Set</span>
+      </a>{% endif %}
+    </div>
+  </section>
+
+  <!-- Metric Overview Cards -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    <!-- Due for Review Today -->
+    <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-outline uppercase tracking-wider">Due for Review Today</span>
+        <span class="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full flex items-center gap-1" id="urgentBadge">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal-600"></span> Active
+        </span>
+      </div>
+      <div class="my-3 flex items-baseline gap-2">
+        <div class="text-3xl font-bold text-on-surface"><span id="metricDueToday">0</span> <span class="text-sm font-normal text-on-surface-variant">Cards</span></div>
+        <div class="text-xs text-outline" id="metricCourseCount">in queue</div>
+      </div>
+      <div class="flex items-center justify-between text-xs pt-2 border-t border-[#f2f3ff]">
+        <span class="text-outline text-[11px]" id="metricEstimatedTime">0 mins estimated</span>
+        <button onclick="startReviewQueue()" class="text-xs font-bold text-primary hover:underline flex items-center gap-0.5">
+          <span>Review Now</span>
+          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Ready in Queue -->
+    <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-outline uppercase tracking-wider">Ready in Queue</span>
+        <span class="text-xs text-outline" id="metricDecksCount">0 Decks Active</span>
+      </div>
+      <div class="my-3 flex items-baseline gap-2">
+        <div class="text-3xl font-bold text-on-surface"><span id="metricTotalCards">0</span> <span class="text-sm font-normal text-on-surface-variant">Cards</span></div>
+        <div class="text-xs text-teal-700 font-semibold">SM-2 Scheduled</div>
+      </div>
+      <div class="flex flex-col gap-1 text-[11px] pt-1 border-t border-[#f2f3ff]">
+        <div class="flex justify-between text-outline">
+          <span>New: <b id="metricNewCards">0</b></span>
+          <span>Learning: <b id="metricLearningCards">0</b></span>
+          <span>Review: <b id="metricReviewCards">0</b></span>
+        </div>
+        <div class="w-full bg-[#eaedff] h-1.5 rounded-full overflow-hidden flex" id="deckProgressBar">
+          <div class="bg-primary-container h-full" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mastery & Retention -->
+    <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-outline uppercase tracking-wider">Mastery & Retention</span>
+        <span class="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full" id="retentionStatusPill">Active Recall</span>
+      </div>
+      <div class="my-3 flex items-baseline gap-2">
+        <div class="text-3xl font-bold text-on-surface"><span id="metricMastered">0</span> <span class="text-sm font-normal text-on-surface-variant">Cards</span></div>
+        <div class="text-xs text-teal-700 font-bold" id="metricRetentionPct">(0% Retained)</div>
+      </div>
+      <div class="flex items-center justify-between text-[11px] text-outline pt-2 border-t border-[#f2f3ff]">
+        <span>Target Stability: 90%+</span>
+        <span>Adaptive SM-2</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Filter Controls -->
+  <section class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm">
+    <div class="relative flex-1 max-w-sm">
+      <span class="material-symbols-outlined text-outline absolute left-3 top-2 text-[18px]">search</span>
+      <input type="text" id="deckSearchInput" oninput="filterDecks()" placeholder="Filter decks or course tags..." class="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 border border-[#e2e8f0] focus:outline-none focus:ring-2 focus:ring-primary-container"/>
+    </div>
+    <div class="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs font-semibold">
+      <button onclick="setDeckFilter('all')" id="btnFilterAll" class="px-3 py-1 rounded-lg bg-white shadow-sm text-on-surface">All (<span id="filterAllCount">0</span>)</button>
+      <button onclick="setDeckFilter('due')" id="btnFilterDue" class="px-3 py-1 rounded-lg text-outline hover:text-on-surface">Due Today (<span id="filterDueCount">0</span>)</button>
+      <button onclick="setDeckFilter('mastered')" id="btnFilterMastered" class="px-3 py-1 rounded-lg text-outline hover:text-on-surface">Mastered (<span id="filterMasteredCount">0</span>)</button>
+    </div>
+  </section>
+
+  <!-- Main 2-Column Section: Decks on Left, Generator on Right -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left 2 Cols: Decks List -->
+    <div class="lg:col-span-2 flex flex-col gap-4" id="decksContainer">
+      <!-- Populated dynamically via JS -->
+    </div>
+
+    <!-- Right 1 Col: Generate New Study Set Form -->
+    <div class="flex flex-col gap-5" id="generatorContainer">
+      {% if false %}
+      <div class="p-6 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-[20px]">auto_awesome</span>
+            <h3 class="text-sm font-bold text-on-surface">Generate New Study Set</h3>
+          </div>
+          <span class="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded-full">GROUNDED RAG</span>
+        </div>
+
+        <!-- Grounding verification notice -->
+        <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-xs text-teal-900 flex items-start gap-2">
+          <span class="material-symbols-outlined text-secondary text-[16px] shrink-0 mt-0.5">verified</span>
+          <p class="text-[11px] leading-relaxed">
+            <strong>100% Grounded in Course Content:</strong> Flashcards are synthesized directly from verified citations in your uploaded slides, readings, and lecture notes without external hallucinations.
+          </p>
+        </div>
+
+        <form id="generateDeckForm" class="flex flex-col gap-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface mb-1">Target Academic Course</label>
+            <select name="course_id" id="genCourseSelect" onchange="loadDocsForCourse(this.value)" class="w-full px-3 py-2 text-xs rounded-xl border border-[#e2e8f0] bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-container">
+              <option value="">Select course...</option>
+              {% for c in courses %}
+              <option value="{{ c.code }}" {% if selected_course == c.code %}selected{% endif %}>{{ c.code }} — {{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-on-surface mb-1">Source Document Repository</label>
+            <select name="doc_id" id="genDocSelect" class="w-full px-3 py-2 text-xs rounded-xl border border-[#e2e8f0] bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-container">
+              <option value="">Select course document...</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-on-surface mb-1">Topic Focus / Filter <span class="text-outline font-normal">(Optional)</span></label>
+            <input type="text" name="topic" placeholder="e.g. Red-black tree insertion cases and recoloring invariants" class="w-full px-3 py-2 text-xs rounded-xl border border-[#e2e8f0] bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-container"/>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs font-semibold text-on-surface mb-1">
+              <span>Batch Size</span>
+              <span class="text-outline font-normal">Recommended: 15</span>
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+              <label class="text-center py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold cursor-pointer hover:bg-slate-50">
+                <input type="radio" name="batch_size" value="10" class="hidden peer"/>
+                <span class="peer-checked:text-white peer-checked:bg-primary-container block -m-1.5 py-1.5 rounded-lg">10</span>
+              </label>
+              <label class="text-center py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold cursor-pointer hover:bg-slate-50">
+                <input type="radio" name="batch_size" value="15" checked class="hidden peer"/>
+                <span class="peer-checked:text-white peer-checked:bg-primary-container block -m-1.5 py-1.5 rounded-lg">15</span>
+              </label>
+              <label class="text-center py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold cursor-pointer hover:bg-slate-50">
+                <input type="radio" name="batch_size" value="20" class="hidden peer"/>
+                <span class="peer-checked:text-white peer-checked:bg-primary-container block -m-1.5 py-1.5 rounded-lg">20</span>
+              </label>
+              <label class="text-center py-1.5 rounded-lg border border-[#e2e8f0] text-xs font-bold cursor-pointer hover:bg-slate-50">
+                <input type="radio" name="batch_size" value="25" class="hidden peer"/>
+                <span class="peer-checked:text-white peer-checked:bg-primary-container block -m-1.5 py-1.5 rounded-lg">25</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Question Cognitive Rigor -->
+          <div class="flex flex-col gap-1.5">
+            <label class="block text-xs font-semibold text-on-surface">Question Cognitive Rigor</label>
+
+            <label class="p-2.5 rounded-xl border border-[#e2e8f0] flex items-start gap-2.5 cursor-pointer hover:bg-slate-50">
+              <input type="radio" name="difficulty" value="conceptual" class="mt-0.5 text-primary-container"/>
+              <div>
+                <div class="text-xs font-bold text-on-surface">Conceptual & Definitions</div>
+                <div class="text-[10px] text-outline">Core lemmas, theorems, and vocabulary</div>
+              </div>
+            </label>
+
+            <label class="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 flex items-start gap-2.5 cursor-pointer">
+              <input type="radio" name="difficulty" value="mechanics" checked class="mt-0.5 text-primary-container"/>
+              <div>
+                <div class="text-xs font-bold text-indigo-950">Mechanics & Algorithmic Tracing</div>
+                <div class="text-[10px] text-indigo-800">Invariant testing, tree state transitions, step sequences</div>
+              </div>
+            </label>
+
+            <label class="p-2.5 rounded-xl border border-[#e2e8f0] flex items-start gap-2.5 cursor-pointer hover:bg-slate-50">
+              <input type="radio" name="difficulty" value="synthesis" class="mt-0.5 text-primary-container"/>
+              <div>
+                <div class="text-xs font-bold text-on-surface">Exam-Level Synthesis</div>
+                <div class="text-[10px] text-outline">Worst-case proofs, edge cases, comparative tradeoffs</div>
+              </div>
+            </label>
+          </div>
+
+          <!-- Checkboxes -->
+          <div class="flex flex-col gap-2 pt-1 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="include_citations" checked class="rounded text-primary-container"/>
+              <span class="text-on-surface-variant font-medium">Include Citation & Slide Number on reverse side</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked class="rounded text-primary-container"/>
+              <span class="text-on-surface-variant font-medium">Include Code / Diagram Tracing when available</span>
+            </label>
+          </div>
+
+          <button type="submit" id="genDeckBtn" class="w-full mt-2 py-3 rounded-xl bg-primary-container hover:bg-primary text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+            <span>Generate Flashcards with AI</span>
+          </button>
+        </form>
+      </div>
+
+      {% else %}
+      <div class="panel"><h2>Free study decks</h2><p class="muted" style="font-size:14px;margin-top:12px">Flashcards prepared from our course readings appear here when they are ready. Your review progress is saved on this device.</p><a class="btn secondary" style="margin-top:18px" href="/resources">Explore more resources</a></div>
+      {% endif %}
+
+      <!-- Active Recall Tip -->
+      <div class="p-4 rounded-xl bg-slate-50 border border-[#e2e8f0] flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">lightbulb</span>
+        <div>
+          <div class="text-xs font-bold text-on-surface">Active Recall Tip</div>
+          <p class="text-[11px] text-on-surface-variant leading-relaxed mt-0.5">
+            Space your intervals by 1, 3, and 7 days. Rating a card <strong class="text-emerald-700">Easy</strong> advances the interval exponentially while <strong class="text-red-700">Again</strong> resets stability to Day 1.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Study Review Runner Modal -->
+<div id="studyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+  <div class="bg-surface-container-lowest w-full max-w-xl rounded-2xl shadow-2xl p-6 flex flex-col gap-5 border border-[#e2e8f0]">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800" id="studyModalDeckBadge">CS 240</span>
+        <span class="text-xs text-outline font-semibold">Card <span id="studyCardNum">1</span> of <span id="studyCardTotal">12</span></span>
+      </div>
+      <button onclick="document.getElementById('studyModal').classList.add('hidden')" class="p-1 rounded-lg text-outline hover:bg-slate-100">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+
+    <!-- 3D Flip Card Container -->
+    <div class="flip-card h-64 w-full cursor-pointer" id="activeFlipCard" onclick="flipActiveCard()">
+      <div class="flip-card-inner h-full w-full">
+        <!-- Front -->
+        <div class="flip-card-front p-6 rounded-2xl bg-white border-2 border-indigo-200 shadow-md flex flex-col justify-between text-left">
+          <div class="text-[10px] font-bold text-outline uppercase tracking-wider">QUESTION (Click card to reveal answer)</div>
+          <div class="text-base font-bold text-on-surface my-auto leading-relaxed" id="cardQuestionText">
+            When inserting into a Red-Black tree, under what condition is a structural tree rotation strictly required?
+          </div>
+          <div class="flex items-center justify-between text-xs text-outline">
+            <span>Tap to flip</span>
+            <span class="material-symbols-outlined text-[16px]">sync</span>
+          </div>
+        </div>
+
+        <!-- Back -->
+        <div class="flip-card-back p-6 rounded-2xl bg-slate-900 text-white shadow-md flex flex-col justify-between text-left">
+          <div class="text-[10px] font-bold text-teal-400 uppercase tracking-wider">GROUNDED ANSWER & CITATION</div>
+          <div class="text-sm leading-relaxed my-auto text-slate-100" id="cardAnswerText">
+            Only when the newly inserted node's uncle is <strong>BLACK</strong> (Cases 2 & 3). If the uncle is RED (Case 1), only recoloring is performed and pointers advance upward without structural rotation.
+          </div>
+          <div class="flex items-center justify-between text-xs text-teal-300 font-mono">
+            <a id="cardSourceLink" href="/resources">View source</a>
+            <span class="material-symbols-outlined text-[16px]">verified</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rating Buttons (SM-2 Spaced Repetition) -->
+    <div class="flex flex-col gap-2">
+      <div class="text-center text-[11px] text-outline font-semibold">Rate your recall (SM-2 Scheduling):</div>
+      <div class="grid grid-cols-4 gap-2">
+        <button onclick="rateActiveCard(0)" class="py-2 rounded-xl bg-red-50 text-red-700 font-bold text-xs hover:bg-red-100 border border-red-200">
+          <div>Again</div>
+          <div class="text-[10px] font-normal">&lt; 10m</div>
+        </button>
+        <button onclick="rateActiveCard(2)" class="py-2 rounded-xl bg-amber-50 text-amber-700 font-bold text-xs hover:bg-amber-100 border border-amber-200">
+          <div>Hard</div>
+          <div class="text-[10px] font-normal">1 day</div>
+        </button>
+        <button onclick="rateActiveCard(3)" class="py-2 rounded-xl bg-teal-50 text-teal-700 font-bold text-xs hover:bg-teal-100 border border-teal-200">
+          <div>Good</div>
+          <div class="text-[10px] font-normal">3 days</div>
+        </button>
+        <button onclick="rateActiveCard(5)" class="py-2 rounded-xl bg-indigo-50 text-indigo-700 font-bold text-xs hover:bg-indigo-100 border border-indigo-200">
+          <div>Easy</div>
+          <div class="text-[10px] font-normal">7 days</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let allCards = [];
+let queueCards = [];
+let currentCardIndex = 0;
+let currentDeckFilter = 'all';
+const selectedCourse = {{ selected_course | tojson }};
+const progressKey = 'studyarchive_review_progress_v1';
+let localProgress = {};
+try { localProgress = JSON.parse(localStorage.getItem(progressKey) || '{}') || {}; } catch (_) {}
+
+async function loadDeckStats() {
+  try {
+    const now = new Date().toISOString();
+    const stats = {
+      total: allCards.length,
+      new: allCards.filter(card => !card.repetitions).length,
+      learning: allCards.filter(card => card.repetitions > 0 && card.interval_days < 21).length,
+      mature: allCards.filter(card => card.interval_days >= 21).length,
+      due_today: allCards.filter(card => !card.next_review || card.next_review <= now).length,
+    };
+    stats.retention_rate = stats.total ? (stats.mature + stats.learning * 0.5) / stats.total * 100 : 0;
+    const total = stats.total || 0;
+    const due = stats.due_today || 0;
+    const mature = stats.mature || 0;
+    const learning = stats.learning || 0;
+    const newCards = stats.new || 0;
+    const retention = Math.round(stats.retention_rate || 0);
+
+    document.getElementById("metricDueToday").innerText = due;
+    document.getElementById("topDueCount").innerText = due;
+    document.getElementById("filterDueCount").innerText = due;
+
+    document.getElementById("metricTotalCards").innerText = total;
+    document.getElementById("filterAllCount").innerText = total;
+
+    document.getElementById("metricNewCards").innerText = newCards;
+    document.getElementById("metricLearningCards").innerText = learning;
+    document.getElementById("metricReviewCards").innerText = mature;
+
+    document.getElementById("metricMastered").innerText = mature;
+    document.getElementById("filterMasteredCount").innerText = mature;
+    document.getElementById("metricRetentionPct").innerText = `(${retention}% Retained)`;
+
+    const urgentBadge = document.getElementById("urgentBadge");
+    if (urgentBadge) {
+      if (due > 0) {
+        urgentBadge.className = "text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full flex items-center gap-1";
+        urgentBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> ${due} Due`;
+      } else {
+        urgentBadge.className = "text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-full flex items-center gap-1";
+        urgentBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-teal-600"></span> All Clear`;
+      }
+    }
+
+    const estTime = Math.ceil(due * 0.7);
+    document.getElementById("metricEstimatedTime").innerText = `~${estTime} mins estimated`;
+
+    const progBar = document.getElementById("deckProgressBar");
+    if (progBar && total > 0) {
+      const maturePct = Math.round((mature / total) * 100);
+      progBar.innerHTML = `<div class="bg-primary-container h-full rounded-full" style="width: ${maturePct}%;"></div>`;
+    }
+  } catch (err) {
+    console.error("Error loading flashcard stats:", err);
+  }
+}
+
+async function loadDecks() {
+  const container = document.getElementById("decksContainer");
+  try {
+    const sharedCards = await api("/api/study/flashcards" + (selectedCourse ? `?course_id=${encodeURIComponent(selectedCourse)}` : ''));
+    allCards = sharedCards.map(card => ({
+      ...card, repetitions:0, interval_days:0, ease_factor:2.5, next_review:'', last_review:null,
+      ...(localProgress[card.id] || {}),
+    }));
+    loadDeckStats();
+
+    // Group cards by course_id
+    const groups = {};
+    allCards.forEach(c => {
+      const key = c.course_id || "General";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+
+    const deckKeys = Object.keys(groups);
+    document.getElementById("metricDecksCount").innerText = `${deckKeys.length} Deck${deckKeys.length === 1 ? '' : 's'} Active`;
+
+    if (deckKeys.length === 0) {
+      container.innerHTML = `
+        <div class="p-10 rounded-2xl bg-surface-container-lowest border border-dashed border-[#cbd5e1] text-center flex flex-col items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center">
+            <span class="material-symbols-outlined text-2xl">style</span>
+          </div>
+          <div class="text-base font-bold text-on-surface">No Flashcard Decks Yet</div>
+          <p class="text-xs text-on-surface-variant max-w-sm leading-relaxed">
+            Shared flashcards will appear here when they are prepared. You can explore the readings and video lessons while you wait.
+          </p>
+          <a href="/resources" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-all shadow-sm">Browse free resources</a>
+        </div>
+      `;
+      return;
+    }
+
+    const todayStr = new Date().toISOString();
+
+    container.innerHTML = deckKeys.map(course => {
+      const cards = groups[course];
+      const dueCards = cards.filter(c => !c.next_review || c.next_review <= todayStr);
+      const matureCards = cards.filter(c => (c.interval_days || 0) >= 21);
+      const mastery = cards.length ? Math.round((matureCards.length / cards.length) * 100) : 0;
+
+      return `
+        <div class="p-5 rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] shadow-sm flex flex-col gap-3 deck-card" data-course="${escapeAttr(course)}" data-due="${dueCards.length}" data-mastered="${matureCards.length}">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">${escapeHtml(course)}</span>
+              ${dueCards.length > 0
+                ? `<span class="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full">${dueCards.length} Due Today</span>`
+                : `<span class="text-[10px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">Reviewed</span>`
+              }
+              <span class="text-xs text-outline">• ${cards.length} Cards total</span>
+            </div>
+            <a href="/api/study/flashcards/export?course_id=${encodeURIComponent(course)}" class="text-outline hover:text-on-surface p-1" title="Export Deck to Anki">
+              <span class="material-symbols-outlined text-[18px]">download</span>
+            </a>
+          </div>
+
+          <div>
+            <h3 class="text-base font-bold text-on-surface">${escapeHtml(course)} Active Recall Study Set</h3>
+            <div class="flex items-center gap-2 text-xs text-on-surface-variant mt-1">
+              <span class="material-symbols-outlined text-[15px] text-outline">description</span>
+              <span>Grounded citations from course repository</span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1 pt-1">
+            <div class="flex justify-between text-xs text-on-surface-variant font-medium">
+              <span>Mastery Progress</span>
+              <span class="font-bold text-indigo-700">${mastery}% (${matureCards.length} Mature, ${cards.length - matureCards.length} Learning)</span>
+            </div>
+            <div class="w-full bg-[#eaedff] h-1.5 rounded-full overflow-hidden">
+              <div class="bg-primary-container h-full rounded-full" style="width: ${mastery}%;"></div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-[#f2f3ff]">
+            <button onclick="previewDeck(this.dataset.course)" data-course="${escapeAttr(course)}" class="flex items-center gap-1 text-xs font-semibold text-outline hover:text-on-surface">
+              <span class="material-symbols-outlined text-[16px]">visibility</span>
+              <span>Preview Cards</span>
+            </button>
+            <button onclick="startReviewQueue(this.dataset.course)" data-course="${escapeAttr(course)}" class="px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-sm">
+              Study Deck (${dueCards.length} Due) →
+            </button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    container.innerHTML = `<div class="p-4 text-xs text-red-700 bg-red-50 rounded-xl">Error loading decks: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadDocsForCourse(courseCode) {
+  const docSelect = document.getElementById("genDocSelect");
+  if (!docSelect) return;
+  if (!courseCode) {
+    docSelect.innerHTML = `<option value="">Select course first...</option>`;
+    return;
+  }
+  try {
+    const docs = await api(`/api/documents?course=${encodeURIComponent(courseCode)}`);
+    if (docs.length === 0) {
+      docSelect.innerHTML = `<option value="">No documents uploaded for ${escapeHtml(courseCode)}</option>`;
+    } else {
+      docSelect.innerHTML = docs.map(d => `
+        <option value="${escapeAttr(d.doc_id)}">${escapeHtml(d.filename || d.title)} (${d.page_count} pgs, ${d.chunk_count} chunks)</option>
+      `).join("");
+    }
+  } catch (err) {
+    docSelect.innerHTML = `<option value="">Error loading documents</option>`;
+  }
+}
+
+function setDeckFilter(filter) {
+  currentDeckFilter = filter;
+  ['all', 'due', 'mastered'].forEach(f => {
+    const btn = document.getElementById(`btnFilter${f.charAt(0).toUpperCase() + f.slice(1)}`);
+    if (btn) {
+      if (f === filter) {
+        btn.className = "px-3 py-1 rounded-lg bg-white shadow-sm text-on-surface";
+      } else {
+        btn.className = "px-3 py-1 rounded-lg text-outline hover:text-on-surface";
+      }
+    }
+  });
+
+  const cards = document.querySelectorAll(".deck-card");
+  cards.forEach(el => {
+    const due = parseInt(el.getAttribute("data-due") || 0);
+    const mastered = parseInt(el.getAttribute("data-mastered") || 0);
+    if (filter === 'due' && due === 0) {
+      el.classList.add("hidden");
+    } else if (filter === 'mastered' && mastered === 0) {
+      el.classList.add("hidden");
+    } else {
+      el.classList.remove("hidden");
+    }
+  });
+}
+
+function filterDecks() {
+  const q = (document.getElementById("deckSearchInput")?.value || "").toLowerCase();
+  const cards = document.querySelectorAll(".deck-card");
+  cards.forEach(el => {
+    const text = el.innerText.toLowerCase();
+    el.classList.toggle("hidden", q && !text.includes(q));
+  });
+}
+
+function flipActiveCard() {
+  document.getElementById("activeFlipCard").classList.toggle("flipped");
+}
+
+function startReviewQueue(course = "") {
+  const todayStr = new Date().toISOString();
+  let filtered = allCards;
+  if (course) {
+    filtered = filtered.filter(c => c.course_id === course);
+  }
+
+  // Filter due cards if any are due, otherwise allow reviewing the entire set
+  const due = filtered.filter(c => !c.next_review || c.next_review <= todayStr);
+  queueCards = due.length > 0 ? due : filtered;
+
+  if (queueCards.length === 0) {
+    showToast("No cards available in this deck to review.");
+    return;
+  }
+
+  document.getElementById("studyModalDeckBadge").innerText = course || "All Due Cards";
+  currentCardIndex = 0;
+  showCard(0);
+  document.getElementById("studyModal").classList.remove("hidden");
+}
+
+function previewDeck(course) {
+  startReviewQueue(course);
+}
+
+function showCard(idx) {
+  if (!queueCards || queueCards.length === 0) return;
+  const card = queueCards[idx % queueCards.length];
+  document.getElementById("studyCardNum").innerText = (idx + 1);
+  document.getElementById("studyCardTotal").innerText = queueCards.length;
+  document.getElementById("cardQuestionText").innerText = card.question;
+  document.getElementById("cardAnswerText").innerText = card.answer;
+  const source = document.getElementById('cardSourceLink');
+  source.textContent = card.doc_id ? `Source · page ${card.page}` : 'Browse readings';
+  source.href = card.doc_id ? `/viewer/${encodeURIComponent(card.doc_id)}?page=${card.page}` : '/resources';
+  document.getElementById("activeFlipCard").classList.remove("flipped");
+}
+
+async function rateActiveCard(rating) {
+  if (queueCards.length > 0 && currentCardIndex < queueCards.length) {
+    const card = queueCards[currentCardIndex];
+    const repetitions = rating < 3 ? 0 : (card.repetitions || 0) + 1;
+    const interval = rating < 3 ? 1 : repetitions === 1 ? 1 : repetitions === 2 ? 6 : Math.round((card.interval_days || 1) * (card.ease_factor || 2.5));
+    const ease = Math.max(1.3, (card.ease_factor || 2.5) + (0.1 - (5 - rating) * (0.08 + (5 - rating) * 0.02)));
+    const next = new Date(); next.setDate(next.getDate() + interval);
+    const progress = {repetitions, interval_days:interval, ease_factor:ease, next_review:next.toISOString(), last_review:new Date().toISOString()};
+    localProgress[card.id] = progress;
+    Object.assign(card, progress);
+    try { localStorage.setItem(progressKey, JSON.stringify(localProgress)); }
+    catch (_) { showToast('Progress will last for this visit. Browser storage is unavailable.'); }
+  }
+
+  currentCardIndex++;
+  if (currentCardIndex >= queueCards.length) {
+    showToast("Deck review session completed! 🎯 Great work!");
+    document.getElementById("studyModal").classList.add("hidden");
+    loadDeckStats();
+    loadDecks();
+  } else {
+    showCard(currentCardIndex);
+  }
+}
+
+function scrollToGenerator() {
+  document.getElementById("generatorContainer")?.scrollIntoView({ behavior: 'smooth' });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadDeckStats();
+  loadDecks();
+
+  const courseSelect = document.getElementById("genCourseSelect");
+  if (courseSelect && courseSelect.value) {
+    loadDocsForCourse(courseSelect.value);
+  }
+
+  const genForm = document.getElementById("generateDeckForm");
+  if (genForm) {
+    genForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("genDeckBtn");
+      btn.disabled = true;
+      btn.innerHTML = `<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span><span>Synthesizing Flashcards...</span>`;
+
+      const formData = new FormData(genForm);
+      const payload = {
+        doc_id: formData.get("doc_id"),
+        course_id: formData.get("course_id"),
+        topic: formData.get("topic"),
+        batch_size: parseInt(formData.get("batch_size") || 15),
+        difficulty: formData.get("difficulty") || "mechanics",
+        include_citations: true
+      };
+
+      if (!payload.course_id || !payload.doc_id) {
+        showToast("Select a course and source document first.", "error");
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[18px]">auto_awesome</span><span>Generate Flashcards with AI</span>`;
+        return;
+      }
+
+      try {
+        const cards = await api("/api/study/flashcards/generate", "POST", payload);
+        showToast(`Synthesized ${cards.length} active-recall cards from ${payload.doc_id || payload.course_id}!`);
+        genForm.reset();
+        loadDeckStats();
+        loadDecks();
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span class="material-symbols-outlined text-[18px]">auto_awesome</span><span>Generate Flashcards with AI</span>`;
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

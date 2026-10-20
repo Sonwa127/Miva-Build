@@ -1,0 +1,65 @@
+{% extends 'public_base.html' %}
+{% block title %}Administrator sign in · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel login-panel">
+  <div class="eyebrow">Library administration</div><h1>{{ 'Welcome back.' if configured else 'Create your admin password.' }}</h1>
+  <p class="muted" style="margin-bottom:24px">Manage the resources you share with your classmates.</p>
+  {% if configured %}
+  <form id="loginForm">
+    <input type="text" name="username" value="admin" autocomplete="username" hidden>
+    <div class="field"><label for="adminPassword">Administrator password</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" required autofocus maxlength="1024"></div>
+    <p id="loginError" class="error-message" role="alert"></p>
+    <button class="btn" type="submit" style="width:100%;margin-top:16px">Sign in</button>
+  </form>
+  {% elif can_setup_locally %}
+  <form id="setupForm">
+    <input type="text" name="username" value="admin" autocomplete="username" hidden>
+    <div class="field"><label for="newPassword">Choose a password</label><input id="newPassword" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" autofocus><small>Use at least 12 characters. Only you will need this password.</small></div>
+    <div class="field"><label for="confirmPassword">Confirm password</label><input id="confirmPassword" name="confirmation" type="password" autocomplete="new-password" required minlength="12" maxlength="1024"></div>
+    <div class="field"><label style="font-weight:400"><input id="showPasswords" type="checkbox">Show passwords</label></div>
+    <p id="setupError" class="error-message" role="alert"></p>
+    <button class="btn" type="submit" style="width:100%;margin-top:16px">Create password & open admin</button>
+  </form>
+  {% else %}
+  <div class="notice">First-time setup is available on the computer running this website. On that computer, open <strong>http://localhost:8000/admin</strong> to choose your password. You can also run <code>python manage_admin.py</code> in the application folder.</div>
+  {% endif %}
+  <p class="muted" style="font-size:13px;margin-top:22px">Just here to study? <a href="/resources">Browse the free library →</a></p>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script>
+document.getElementById('showPasswords')?.addEventListener('change', event => {
+  ['newPassword', 'confirmPassword'].forEach(id => document.getElementById(id).type = event.target.checked ? 'text' : 'password');
+});
+document.getElementById('setupForm')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.target;
+  const error = document.getElementById('setupError');
+  error.textContent = '';
+  if (form.elements.password.value !== form.elements.confirmation.value) {
+    error.textContent = 'The passwords do not match. Please enter them again.';
+    return;
+  }
+  const button = form.querySelector('button');
+  button.disabled = true;
+  try {
+    await api('/api/admin/setup', 'POST', {password:form.elements.password.value, confirmation:form.elements.confirmation.value});
+    location.replace('/admin');
+  } catch (failure) {
+    error.textContent = failure.message;
+    button.disabled = false;
+  }
+});
+document.getElementById('loginForm')?.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = event.target.querySelector('button');
+  button.disabled = true;
+  document.getElementById('loginError').textContent = '';
+  try {
+    await api('/api/admin/login', 'POST', {password: event.target.elements.password.value});
+    location.replace('/admin');
+  } catch (error) {
+    document.getElementById('loginError').textContent = error.message;
+    button.disabled = false;
+  }
+});
+</script>{% endblock %}

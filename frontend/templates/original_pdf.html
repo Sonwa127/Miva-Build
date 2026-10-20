@@ -1,0 +1,99 @@
+{% extends 'public_base.html' %}
+{% block title %}{{ document.title }} · PDF reader{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="/resources">Resource library</a> / {{ document.course or 'Reading' }}</div>
+<section class="page-heading"><div><div class="eyebrow">{{ document.course }} · PDF reading</div><h1>{{ document.title }}</h1><p>{{ document.filename }} · {{ document.page_count }} pages · Original page layout</p></div><a class="btn secondary" href="/api/documents/{{ doc_id }}/file?download=true">Download PDF ↓</a></section>
+<div class="reader-toolbar">
+  <div class="reader-controls">
+    <button class="btn secondary small" id="previousPage" type="button" aria-label="Previous page">←</button>
+    <label for="pageInput">Page</label><input type="number" id="pageInput" value="{{ initial_page }}" min="1" max="{{ document.page_count }}" aria-label="Page number">
+    <span>of {{ document.page_count }}</span><button class="btn secondary small" id="nextPage" type="button" aria-label="Next page">→</button>
+  </div>
+  <div class="reader-controls">
+    <button class="btn secondary small" type="button" id="zoomOut" aria-label="Zoom out">−</button><span id="zoomText" aria-live="polite">100%</span><button class="btn secondary small" type="button" id="zoomIn" aria-label="Zoom in">+</button>
+    <button class="btn secondary small" type="button" id="fitWidth">Fit width</button><button class="btn secondary small" type="button" id="fitPage">Fit page</button>
+    <button class="btn secondary small" type="button" id="originalToggle">Original PDF view</button>
+  </div>
+</div>
+<p class="reader-status" id="readerStatus" role="status">Loading original page…</p>
+<div class="reader-canvas" id="viewerCanvas"><img id="pdfPage" src="/api/documents/{{ doc_id }}/pages/{{ initial_page }}/image" alt="Original PDF, page {{ initial_page }} of {{ document.page_count }}" style="width:100%"></div>
+<iframe class="original-frame" id="originalPdf" title="{{ document.title }} — original PDF document" data-file="/api/documents/{{ doc_id }}/file" hidden></iframe>
+<div class="card-actions" style="margin-top:16px"><button class="btn secondary small" type="button" id="copyCitation">Copy page link</button><a class="btn secondary small" id="askPage" href="/ask?doc_id={{ doc_id }}&course_id={{ document.course | urlencode }}">Ask about this reading</a><a href="/api/documents/{{ doc_id }}/file" class="muted" target="_blank" rel="noopener">Open original PDF in a new tab ↗</a></div>
+<div class="reader-tools">
+  <details class="panel" id="pageTextDetails"><summary>Text version of this page</summary><p class="muted" style="font-size:12px;margin:10px 0">For selecting or copying text. The reader above preserves the original formatting.</p><div class="reader-text" id="pageText">Open to load page text.</div></details>
+  <section class="panel"><h2>Keep the context.</h2><p class="muted" style="font-size:14px;margin-top:10px">Use the page link to send classmates straight to this part of the reading. The original PDF is also available for saving, printing, or reading offline.</p></section>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script>
+const documentId = {{ doc_id | tojson }};
+const totalPages = {{ document.page_count }};
+let currentPage = {{ initial_page }};
+let currentZoom = 100;
+let fitMode = 'width';
+let textRequestId = 0;
+const image = document.getElementById('pdfPage');
+const canvas = document.getElementById('viewerCanvas');
+const original = document.getElementById('originalPdf');
+const status = document.getElementById('readerStatus');
+function applyZoom() {
+  const availableWidth = Math.max(1, canvas.clientWidth - (innerWidth < 600 ? 18 : 46));
+  if (fitMode === 'page' && image.naturalHeight) {
+    const width = Math.min(availableWidth, (canvas.clientHeight - 46) * image.naturalWidth / image.naturalHeight);
+    image.style.width = `${Math.max(1, width)}px`;
+  } else {
+    image.style.width = `${availableWidth * currentZoom / 100}px`;
+  }
+  document.getElementById('zoomText').textContent = fitMode === 'page' ? 'Fit page' : `${currentZoom}%`;
+}
+async function loadText() {
+  if (!document.getElementById('pageTextDetails').open) return;
+  const page = currentPage;
+  const requestId = ++textRequestId;
+  const target = document.getElementById('pageText');
+  target.textContent = 'Loading text…';
+  try {
+    const result = await api(`/api/documents/${encodeURIComponent(documentId)}/pages/${page}`);
+    if (page === currentPage && requestId === textRequestId) target.textContent = result.content.join('\n\n') || 'No selectable text on this page. Read the original page above.';
+  } catch (error) { if (page === currentPage && requestId === textRequestId) target.textContent = error.message; }
+}
+function updateControls() {
+  document.getElementById('pageInput').value = currentPage;
+  document.getElementById('previousPage').disabled = currentPage === 1;
+  document.getElementById('nextPage').disabled = currentPage === totalPages;
+}
+function originalUrl() { return `${original.dataset.file}#page=${currentPage}&zoom=page-width`; }
+function goToPage(page) {
+  const next = Math.min(totalPages, Math.max(1, parseInt(page,10) || 1));
+  if (next === currentPage) { updateControls(); return; }
+  currentPage = next;
+  updateControls();
+  status.textContent = 'Loading original page…';
+  image.alt = `Original PDF, page ${currentPage} of ${totalPages}`;
+  image.src = `/api/documents/${encodeURIComponent(documentId)}/pages/${currentPage}/image`;
+  if (!original.hidden) original.src = originalUrl();
+  const url = new URL(location.href); url.searchParams.set('page', currentPage); history.replaceState({}, '', url);
+  loadText();
+}
+image.addEventListener('load', () => { status.textContent = `Page ${currentPage} — original formatting preserved`; applyZoom(); });
+image.addEventListener('error', () => { status.textContent = 'This page could not be displayed. Open or download the original PDF using the links below.'; });
+document.getElementById('previousPage').addEventListener('click', () => goToPage(currentPage - 1));
+document.getElementById('nextPage').addEventListener('click', () => goToPage(currentPage + 1));
+document.getElementById('pageInput').addEventListener('change', event => goToPage(event.target.value));
+document.getElementById('zoomIn').addEventListener('click', () => { fitMode='width'; currentZoom=Math.min(250,currentZoom+10); applyZoom(); });
+document.getElementById('zoomOut').addEventListener('click', () => { fitMode='width'; currentZoom=Math.max(40,currentZoom-10); applyZoom(); });
+document.getElementById('fitWidth').addEventListener('click', () => { fitMode='width'; currentZoom=100; applyZoom(); });
+document.getElementById('fitPage').addEventListener('click', () => { fitMode='page'; applyZoom(); });
+document.getElementById('originalToggle').addEventListener('click', event => {
+  original.hidden = !original.hidden; canvas.hidden = !original.hidden;
+  event.target.textContent = original.hidden ? 'Original PDF view' : 'Page view';
+  if (!original.hidden) original.src = originalUrl(); else applyZoom();
+});
+document.getElementById('copyCitation').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(location.href); showToast('Page link copied'); }
+  catch (_) { window.prompt('Copy this page link:', location.href); }
+});
+document.getElementById('pageTextDetails').addEventListener('toggle', loadText);
+window.addEventListener('resize', applyZoom);
+updateControls();
+if (image.complete && image.naturalWidth) { status.textContent=`Page ${currentPage} — original formatting preserved`; applyZoom(); }
+</script>{% endblock %}
