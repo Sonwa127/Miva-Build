@@ -1,0 +1,96 @@
+{% extends 'public_base.html' %}
+{% block title %}Student accounts · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:860px;margin:0 auto">
+  <div class="eyebrow">Library administration</div>
+  <h1>Student accounts</h1>
+  <p class="muted" style="margin-bottom:16px"><a href="/admin">← Back to admin</a></p>
+  {% if not login_required %}<div class="notice" style="margin-bottom:16px">Login is <strong>not required</strong> yet, so anyone can open the site. Set <code>ARCHIVE_REQUIRE_LOGIN=1</code> on the server to lock it.</div>{% endif %}
+  <h2 style="margin:8px 0">Cohort code</h2>
+  <p class="muted" style="margin-bottom:8px">Share this code in your class group. Students use it to create their own accounts{% if domains %} with {% for d in domains %}@{{ d }}{% if not loop.last %}, {% endif %}{% endfor %} emails{% endif %}. If it leaks, make a new one and the old one stops working at once.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:24px">
+    <code id="code" style="font-size:20px;padding:6px 12px;letter-spacing:1px">...</code>
+    <button class="btn" id="newCode" type="button">Make new code</button>
+    <button class="btn" id="closeCode" type="button">Close signup</button>
+  </div>
+
+  <h2 style="margin:8px 0">One-time link</h2>
+  <p class="muted" style="margin-bottom:8px">For a classmate who cannot use the cohort code, enter their email. Send them the link yourself (it works once, for 24 hours).</p>
+  <form id="inviteForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+    <div class="field" style="flex:1;min-width:240px;margin:0"><label for="inviteEmail">Email address</label><input id="inviteEmail" type="email" required maxlength="254" placeholder="name@example.com"></div>
+    <button class="btn" type="submit">Make link</button>
+  </form>
+  <div id="linkResult" class="notice" style="display:none;margin-bottom:16px;word-break:break-all"></div>
+
+  <h2 style="margin:24px 0 8px">Accounts (<span id="count">0</span>)</h2>
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr style="text-align:left"><th style="padding:8px">Email</th><th style="padding:8px">Joined</th><th style="padding:8px">Last sign-in</th><th style="padding:8px">Status</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <p id="empty" class="muted" style="display:none;margin-top:16px">No student accounts yet.</p>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script>
+const rows = document.getElementById('rows');
+const day = value => value ? value.slice(0, 10) : '-';
+function cell(text) { const td = document.createElement('td'); td.style.padding = '8px'; td.textContent = text; return td; }
+function action(label, handler) {
+  const button = document.createElement('button');
+  button.className = 'btn'; button.type = 'button'; button.textContent = label;
+  button.style.cssText = 'padding:4px 10px;margin-left:6px;font-size:13px';
+  button.addEventListener('click', handler);
+  return button;
+}
+async function load() {
+  const users = await api('/api/admin/users');
+  rows.replaceChildren();
+  document.getElementById('count').textContent = users.length;
+  document.getElementById('empty').style.display = users.length ? 'none' : 'block';
+  for (const user of users) {
+    const tr = document.createElement('tr');
+    tr.style.borderTop = '1px solid #e5e7eb';
+    tr.append(cell(user.email), cell(day(user.created_at)), cell(day(user.last_login_at)), cell(user.disabled ? 'Disabled' : 'Active'));
+    const actions = document.createElement('td'); actions.style.cssText = 'padding:8px;white-space:nowrap';
+    actions.append(action(user.disabled ? 'Enable' : 'Disable', async () => {
+      await api(`/api/admin/users/${user.id}/${user.disabled ? 'enable' : 'disable'}`, 'POST'); load();
+    }));
+    actions.append(action('Reset link', async () => {
+      const result = await api(`/api/admin/users/${user.id}/reset-link`, 'POST');
+      showLink(`Reset link for ${result.email} (works once, ${result.expires_in_hours} hours): ${result.link}`);
+    }));
+    actions.append(action('Delete', async () => {
+      if (!confirm(`Delete ${user.email}? They will need to sign up again.`)) return;
+      await api(`/api/admin/users/${user.id}`, 'DELETE'); load();
+    }));
+    tr.append(actions);
+    rows.append(tr);
+  }
+}
+function showLink(text) {
+  const box = document.getElementById('linkResult');
+  box.textContent = text; box.style.display = 'block'; box.scrollIntoView({block: 'nearest'});
+}
+const codeBox = document.getElementById('code');
+function showCode(code) { codeBox.textContent = code || 'Signup is closed'; }
+async function loadCode() { showCode((await api('/api/admin/users/code')).code); }
+document.getElementById('newCode').addEventListener('click', async () => {
+  const had = codeBox.textContent.includes('-');
+  if (had && !confirm('Make a new code? The old code will stop working.')) return;
+  showCode((await api('/api/admin/users/code', 'POST')).code);
+});
+document.getElementById('closeCode').addEventListener('click', async () => {
+  if (!confirm('Close signup? Existing accounts keep working.')) return;
+  showCode((await api('/api/admin/users/code', 'DELETE')).code);
+});
+document.getElementById('inviteForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const input = document.getElementById('inviteEmail');
+  try {
+    const result = await api('/api/admin/users/invite', 'POST', {email: input.value});
+    showLink(`Sign-up link for ${result.email} (works once, ${result.expires_in_hours} hours): ${result.link}`);
+    input.value = '';
+  } catch (error) { document.getElementById('linkResult').style.display = 'none'; }
+});
+loadCode();
+load();
+</script>{% endblock %}

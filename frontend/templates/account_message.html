@@ -1,0 +1,10 @@
+{% extends 'public_base.html' %}
+{% block title %}{{ title }} · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel login-panel">
+  <h1>{{ title }}</h1>
+  <p class="muted" style="margin-bottom:24px">{{ text }}</p>
+  {% if link %}<p><a class="btn" href="{{ link[0] }}">{{ link[1] }}</a></p>{% endif %}
+  <p class="muted" style="font-size:13px;margin-top:22px"><a href="/login">Back to sign in</a></p>
+</section>
+{% endblock %}

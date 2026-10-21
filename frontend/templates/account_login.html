@@ -1,0 +1,18 @@
+{% extends 'public_base.html' %}
+{% block title %}Sign in · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel login-panel">
+  <div class="eyebrow">Classmates only</div>
+  <h1>Welcome back.</h1>
+  <p class="muted" style="margin-bottom:24px">Sign in with your school email to use the library.</p>
+  {% if notice %}<div class="notice" role="status">{{ notice }}</div>{% endif %}
+  <form method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="field"><label for="email">School email</label><input id="email" name="email" type="email" autocomplete="username" required autofocus maxlength="254" value="{{ email or '' }}"></div>
+    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256"></div>
+    {% if error %}<p class="error-message" role="alert">{{ error }}</p>{% endif %}
+    <button class="btn" type="submit" style="width:100%;margin-top:16px">Sign in</button>
+  </form>
+  <p class="muted" style="font-size:13px;margin-top:22px"><a href="/forgot">Forgot your password?</a> · <a href="/signup">Create an account</a></p>
+</section>
+{% endblock %}

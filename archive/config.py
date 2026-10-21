@@ -27,6 +27,19 @@ CHROMA_DIR = DATA_DIR / "chroma"
 REGISTRY_DB = DATA_DIR / "registry.sqlite"
 APP_DB = DATA_DIR / "app.sqlite"
 USERS_DB = DATA_DIR / "users.sqlite"
+ACCOUNTS_DB = DATA_DIR / "accounts.sqlite"
+
+# Student accounts. Students sign up with a cohort code the admin generates at /admin/users.
+# Optional: limit signup to these email domains (comma separated, subdomains included).
+# Leave empty to accept any email, in which case the cohort code is the only gate.
+ALLOWED_EMAIL_DOMAINS = tuple(
+    d.strip().lower().lstrip("@")
+    for d in os.getenv("ARCHIVE_ALLOWED_EMAIL_DOMAINS", "").split(",") if d.strip()
+)
+# Set ARCHIVE_REQUIRE_LOGIN=1 on a public server so every page needs a student or admin login.
+REQUIRE_LOGIN = os.getenv("ARCHIVE_REQUIRE_LOGIN", "0") == "1"
+# Used to build one-time links, e.g. https://study.example.com (never trust the Host header).
+PUBLIC_URL = os.getenv("ARCHIVE_PUBLIC_URL", "").rstrip("/")
 
 
 # Bump the collection name when the embedding algorithm changes. Keeping the old

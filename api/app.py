@@ -11,6 +11,8 @@ from archive import config, courses, course_weeks, registry, resources, summarie
 from archive.llm import LLMError
 from .routes import analytics, courses as courses_router, documents, evaluation, qa, study
 from .routes import admin, resources as resources_router
+from .routes import accounts as accounts_routes, accounts_admin
+from .gate import login_gate
 from .routes import course_weeks as course_weeks_router
 from .auth import can_setup_locally, is_admin, load_credentials
 
@@ -45,6 +47,11 @@ app.include_router(analytics.router)
 app.include_router(evaluation.router)
 app.include_router(admin.router)
 app.include_router(resources_router.router)
+app.include_router(accounts_routes.router)
+app.include_router(accounts_admin.api_router)
+app.include_router(accounts_admin.page_router)
+# Student login gate; does nothing unless ARCHIVE_REQUIRE_LOGIN=1.
+app.middleware("http")(login_gate)
 app.include_router(course_weeks_router.router)
 
 

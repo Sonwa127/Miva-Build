@@ -1,0 +1,29 @@
+{% extends 'public_base.html' %}
+{% block title %}Create your account · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel login-panel">
+  <div class="eyebrow">Classmates only</div>
+  <h1>Create your account.</h1>
+  {% if open %}
+  <p class="muted" style="margin-bottom:24px">You need the cohort code from your class group. Choose your own password. Nobody else knows it.</p>
+  <form method="post" action="/signup" autocomplete="on">
+    <div class="field"><label for="email">Email{% if domains %} ({% for d in domains %}@{{ d }}{% if not loop.last %}, {% endif %}{% endfor %}){% endif %}</label><input id="email" name="email" type="email" autocomplete="username" required autofocus maxlength="254" value="{{ email or '' }}"></div>
+    <div class="field"><label for="code">Cohort code</label><input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" required maxlength="40" placeholder="XXXX-XXXX-XXXX"></div>
+    <div class="field"><label for="password">Password (at least {{ min_length }} characters)</label><input id="password" name="password" type="password" autocomplete="new-password" required minlength="{{ min_length }}" maxlength="256"></div>
+    <div class="field"><label for="confirmation">Confirm password</label><input id="confirmation" name="confirmation" type="password" autocomplete="new-password" required minlength="{{ min_length }}" maxlength="256"></div>
+    <div class="field"><label style="font-weight:400"><input id="showPasswords" type="checkbox">Show passwords</label></div>
+    {% if error %}<p class="error-message" role="alert">{{ error }}</p>{% endif %}
+    <button class="btn" type="submit" style="width:100%;margin-top:16px">Create account</button>
+  </form>
+  {% else %}
+  <div class="notice">Signup is closed right now. Ask your class admin.</div>
+  {% if error %}<p class="error-message" role="alert">{{ error }}</p>{% endif %}
+  {% endif %}
+  <p class="muted" style="font-size:13px;margin-top:22px">Already have an account? <a href="/login">Sign in</a></p>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script>
+document.getElementById('showPasswords')?.addEventListener('change', event => {
+  ['password', 'confirmation'].forEach(id => document.getElementById(id).type = event.target.checked ? 'text' : 'password');
+});
+</script>{% endblock %}
