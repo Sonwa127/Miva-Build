@@ -55,3 +55,25 @@ def test_truncated_reply_still_makes_the_cards_that_arrived(db):
 def test_bad_page_number_does_not_lose_the_card(db):
     cards = flashcards.generate_flashcards("doc1", FakeStore(), FakeLLM('[{"question":"q","answer":"a","page":"n/a"}]'), course_id="MTH 101")
     assert len(cards) == 1 and cards[0].page == 1
+
+
+def test_line_breaks_inside_answers_are_accepted():
+    """Real Mistral replies put actual newlines inside the answer text, which strict JSON rejects."""
+    reply = ('[\n {"question": "Steps?", "answer": "The steps:\n  1. Define\n  2. Collect", "page": 33},\n'
+             ' {"question": "Two?", "answer": "A\nB", "page": 34}\n]')
+    cards = parse_json_list(reply)
+    assert [c["page"] for c in cards] == [33, 34] and "1. Define" in cards[0]["answer"]
+    cut = '```json\n[{"question": "q1", "answer": "a\nb", "page": 1}, {"question": "q2", "answer": "a\nb'
+    assert [c["question"] for c in parse_json_list(cut)] == ["q1"]
+
+
+def test_summary_with_line_breaks_is_read_and_junk_is_refused(db, monkeypatch):
+    import pytest as _pytest
+    from archive import summaries
+    monkeypatch.setattr(summaries, "DB_PATH", db / "summaries.sqlite")
+    from archive.llm import LLMError
+    good = FakeLLM('```json\n{"title": "T", "summary_text": "Line one\nLine two", "key_concepts": ["a"], "source_pages": [1]}\n```')
+    result = summaries.generate_summary("doc1", FakeStore(), good, course_id="MTH 101")
+    assert "Line two" in result.summary_text
+    with _pytest.raises(LLMError):
+        summaries.generate_summary("doc1", FakeStore(), FakeLLM("Sorry, I cannot do that."), course_id="MTH 101")

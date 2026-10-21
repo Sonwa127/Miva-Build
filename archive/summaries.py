@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import config
+from .llm import LLMError
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS summaries (
@@ -100,20 +101,14 @@ def generate_summary(
 
     user_prompt = f"EXCERPTS:\n\n{context_str}\n\nFOCUS: {chapter or 'Full Lecture'}"
 
+    reply = llm.complete(system_prompt, user_prompt, temperature=0.2, max_tokens=3000)   # AI errors reach the admin
     try:
-        reply = llm.complete(system_prompt, user_prompt, temperature=0.2, max_tokens=2000)
-        cleaned = reply.strip()
-        if cleaned.startswith("```"):
-            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-            cleaned = re.sub(r"\s*```$", "", cleaned)
-        data = json.loads(cleaned)
-    except Exception:
-        data = {
-            "title": f"Summary: {chapter or doc_id}",
-            "summary_text": "Executive summary generated from course lecture notes.",
-            "key_concepts": ["Core Invariants", "Algorithmic Complexity"],
-            "source_pages": sorted_pages[:5],
-        }
+        body = re.sub(r"```(?:json)?", "", reply).strip()
+        data = json.loads(body[body.index("{"):body.rindex("}") + 1], strict=False)   # strict=False: real line breaks inside strings
+        if not isinstance(data, dict) or not str(data.get("summary_text", "")).strip():
+            raise ValueError("empty summary")
+    except ValueError:
+        raise LLMError("The AI replied, but its summary could not be read. Nothing was published. Please try again.") from None
 
     sum_id = f"sm_{uuid.uuid4().hex[:10]}"
     title = data.get("title", f"Summary of {doc_id}")

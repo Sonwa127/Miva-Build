@@ -16,12 +16,12 @@ def parse_json_list(reply: str) -> list[dict]:
     if start == -1:
         return []
     try:                                                    # the whole array, the normal case
-        whole = json.loads(text[start:text.rfind("]") + 1])
+        whole = json.loads(text[start:text.rfind("]") + 1], strict=False)   # strict=False: models put real line breaks inside strings
         if isinstance(whole, list):
             return [x for x in whole if isinstance(x, dict)]
     except ValueError:
         pass
-    decoder, position, items = json.JSONDecoder(), start + 1, []
+    decoder, position, items = json.JSONDecoder(strict=False), start + 1, []
     while True:                                             # a broken or truncated array: keep the good objects
         brace = text.find("{", position)
         if brace == -1:
