@@ -253,7 +253,8 @@ def test_pages_render_for_the_right_people(site):
         assert "Litpathway" in page.text and 'href="/admin/team"' not in page.text
         assert lit.get("/admin/activity").status_code == 200
         assert "no-store" in lit.get("/admin/activity").headers["cache-control"]
-    assert 'name="username"' in TestClient(app).get("/admin/login").text
+    page = TestClient(app).get("/admin/login").text
+    assert 'name="who"' in page and 'value="owner" checked' in page
 
 
 def test_collaborator_passes_the_student_login_gate(site, monkeypatch):
