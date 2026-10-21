@@ -175,6 +175,16 @@ async def study_hub_page(request: Request, course_id: str = ""):
     )
 
 
+@app.get("/quizzes", response_class=HTMLResponse)
+async def quizzes_page(request: Request, course_id: str = ""):
+    """Practice quizzes for students."""
+    return templates.TemplateResponse(
+        request=request,
+        name="quizzes.html",
+        context={"courses": courses.list_courses(), "selected_course": course_id, "active_page": "quizzes", "is_admin": is_admin(request)},
+    )
+
+
 @app.get("/resources", response_class=HTMLResponse)
 async def resource_library_page(request: Request, course: str = "", kind: str = "", q: str = ""):
     items = resources.list_resources(course or None)

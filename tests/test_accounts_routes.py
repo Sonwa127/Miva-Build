@@ -46,7 +46,7 @@ def test_public_paths():
     for path in ["/login", "/signup", "/verify", "/forgot", "/logout", "/static/css/app.css", "/admin",
                  "/admin/login", "/admin/users", "/api/admin/login", "/api/admin/users"]:
         assert is_public_path(path), path
-    for path in ["/", "/ask", "/courses", "/resources", "/study", "/api/qa", "/api/documents", "/docs",
+    for path in ["/", "/ask", "/courses", "/resources", "/study", "/quizzes", "/api/qa", "/api/documents", "/docs",
                  "/loginx", "/administrator", "/api/administrator", "/staticfiles/x"]:
         assert not is_public_path(path), path
 

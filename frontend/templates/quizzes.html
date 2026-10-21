@@ -1,0 +1,112 @@
+{% extends "public_base.html" %}
+{% block title %}Practice quizzes · StudyArchive{% endblock %}
+{% block content %}
+<section class="page-heading"><div><div class="eyebrow">Check what you know</div><h1>Practice quizzes</h1><p class="muted">Multiple-choice questions prepared from the class notes. Answer, submit, and see the explanation for each question.</p></div></section>
+<section class="panel" style="max-width:820px">
+  <div class="field" style="max-width:320px"><label for="quizCourse">Course</label>
+    <select id="quizCourse"><option value="">All courses</option>{% for course in courses %}<option value="{{ course.code }}" {% if course.code == selected_course %}selected{% endif %}>{{ course.code }}</option>{% endfor %}</select></div>
+  <div id="quizList" style="margin-top:16px"></div>
+  <form id="quizForm" hidden>
+    <h2 id="quizTitle" style="margin:8px 0 4px"></h2>
+    <p class="muted" id="quizMeta" style="margin-bottom:16px"></p>
+    <div id="quizQuestions"></div>
+    <p id="quizError" class="error-message" role="alert"></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+      <button class="btn" type="submit" id="quizSubmit">Submit answers</button>
+      <button class="btn" type="button" id="quizBack" style="background:transparent;color:inherit;border:1px solid #cbd5e1">Back to quizzes</button>
+    </div>
+  </form>
+  <div id="quizResult" hidden></div>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script>
+const el = id => document.getElementById(id);
+const make = (tag, text, style) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (style) node.style.cssText = style; return node; };
+let current = null;
+
+async function loadList() {
+  const course = el('quizCourse').value;
+  const list = el('quizList');
+  list.replaceChildren(make('p', 'Loading…', 'color:#64748b'));
+  try {
+    const quizzes = await api('/api/study/quizzes' + (course ? `?course_id=${encodeURIComponent(course)}` : ''));
+    list.replaceChildren();
+    if (!quizzes.length) {
+      list.append(make('p', 'No quizzes have been prepared for this course yet. Check back soon.', 'color:#64748b'));
+      return;
+    }
+    for (const quiz of quizzes) {
+      const row = make('div', undefined, 'display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #e5e7eb');
+      const text = make('div');
+      text.append(make('strong', quiz.title), make('div', `${quiz.course_id || 'General'} · ${quiz.question_count} questions`, 'font-size:13px;color:#64748b'));
+      const start = make('button', 'Start quiz'); start.className = 'btn'; start.type = 'button';
+      start.addEventListener('click', () => openQuiz(quiz.id));
+      row.append(text, start); list.append(row);
+    }
+  } catch (error) { list.replaceChildren(make('p', error.message || 'Could not load quizzes.', 'color:#b91c1c')); }
+}
+
+async function openQuiz(id) {
+  el('quizError').textContent = '';
+  try { current = await api(`/api/study/quizzes/${encodeURIComponent(id)}`); }
+  catch (error) { el('quizList').prepend(make('p', error.message || 'Could not open that quiz.', 'color:#b91c1c')); return; }
+  el('quizTitle').textContent = current.title;
+  el('quizMeta').textContent = `${current.questions.length} questions. Pick one answer for each.`;
+  const box = el('quizQuestions'); box.replaceChildren();
+  current.questions.forEach((q, i) => {
+    const group = make('fieldset', undefined, 'border:0;padding:0;margin:0 0 20px');
+    group.append(make('legend', `${i + 1}. ${q.question}`, 'font-weight:600;margin-bottom:8px'));
+    q.choices.forEach((choice, c) => {
+      const label = make('label', undefined, 'display:block;font-weight:400;margin:4px 0;cursor:pointer');
+      const input = document.createElement('input'); input.type = 'radio'; input.name = `q${i}`; input.value = String(c);
+      label.append(input, document.createTextNode(' ' + choice)); group.append(label);
+    });
+    box.append(group);
+  });
+  el('quizList').hidden = true; el('quizCourse').closest('.field').hidden = true;
+  el('quizResult').hidden = true; el('quizForm').hidden = false;
+  window.scrollTo({top: 0});
+}
+
+function backToList() {
+  current = null;
+  el('quizForm').hidden = true; el('quizResult').hidden = true;
+  el('quizList').hidden = false; el('quizCourse').closest('.field').hidden = false;
+}
+
+el('quizBack').addEventListener('click', backToList);
+el('quizCourse').addEventListener('change', loadList);
+el('quizForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const answers = current.questions.map((_, i) => {
+    const picked = document.querySelector(`input[name="q${i}"]:checked`);
+    return picked ? Number(picked.value) : -1;
+  });
+  const missing = answers.filter(a => a < 0).length;
+  if (missing && !confirm(`${missing} question${missing === 1 ? ' is' : 's are'} unanswered and will count as wrong. Submit anyway?`)) return;
+  el('quizSubmit').disabled = true; el('quizError').textContent = '';
+  try {
+    const result = await api(`/api/study/quizzes/${encodeURIComponent(current.id)}/submit`, 'POST', {answers});
+    showResult(result);
+  } catch (error) { el('quizError').textContent = error.message || 'Could not submit.'; }
+  el('quizSubmit').disabled = false;
+});
+
+function showResult(result) {
+  const box = el('quizResult'); box.replaceChildren();
+  box.append(make('h2', `You scored ${Math.round(result.score)} out of ${result.total} (${Math.round(result.percentage)}%)`, 'margin:8px 0 16px'));
+  result.results.forEach((r, i) => {
+    const card = make('div', undefined, `padding:12px;margin-bottom:12px;border-radius:10px;border:1px solid ${r.is_correct ? '#99d5c9' : '#f1b6b6'};background:${r.is_correct ? '#f0faf7' : '#fdf3f3'}`);
+    card.append(make('div', `${i + 1}. ${r.question}`, 'font-weight:600;margin-bottom:6px'));
+    const yours = r.user_choice >= 0 ? r.choices[r.user_choice] : 'No answer';
+    card.append(make('div', `Your answer: ${yours}`, 'font-size:14px'));
+    if (!r.is_correct) card.append(make('div', `Correct answer: ${r.choices[r.correct_index]}`, 'font-size:14px;font-weight:600'));
+    if (r.explanation) card.append(make('div', `${r.explanation}${r.source_page ? ` (page ${r.source_page})` : ''}`, 'font-size:14px;color:#475569;margin-top:6px'));
+    box.append(card);
+  });
+  const again = make('button', 'Back to quizzes'); again.className = 'btn'; again.type = 'button';
+  again.addEventListener('click', backToList); box.append(again);
+  el('quizForm').hidden = true; box.hidden = false; window.scrollTo({top: 0});
+}
+loadList();
+</script>{% endblock %}

@@ -51,7 +51,7 @@ def sign_in(client):
 
 def test_students_browse_free_pages_and_cannot_manage_content(library):
     client, course, _ = library
-    for path in ["/", "/courses", f"/courses/{course.id}", "/resources", "/study", "/admin/login"]:
+    for path in ["/", "/courses", f"/courses/{course.id}", "/resources", "/study", "/quizzes", "/admin/login"]:
         response = client.get(path)
         assert response.status_code == 200, response.text
         assert "Alex Morgan" not in response.text
