@@ -149,8 +149,9 @@ bindForm('studyPublishForm', 'studyError', async form => {
   const kind = form.elements.kind.value;
   document.getElementById('studySuccess').textContent = 'Generating study material…';
   try {
-    await api(`/api/study/${kind}/generate`, 'POST', {doc_id:select.value, course_id:select.selectedOptions[0].dataset.course});
-    document.getElementById('studySuccess').textContent = 'Published. Your classmates can now use this study material.';
+    const made = await api(`/api/study/${kind}/generate`, 'POST', {doc_id:select.value, course_id:select.selectedOptions[0].dataset.course});
+    const count = Array.isArray(made) ? ` ${made.length} ${kind === 'flashcards' ? 'flashcards' : 'terms'} made.` : '';
+    document.getElementById('studySuccess').textContent = 'Published.' + count + ' Your classmates can now use this study material.';
   } catch (error) { document.getElementById('studySuccess').textContent = ''; throw error; }
 });
 document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventListener('click', () => {

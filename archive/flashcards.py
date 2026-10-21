@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from . import config
+from .jsonparse import parse_json_list
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS flashcards (
@@ -144,24 +145,12 @@ def generate_flashcards(
 
     user_prompt = f"COURSE MATERIAL EXCERPTS:\n\n{context_str}\n\nTOPIC FOCUS: {topic or 'Entire Document'}"
 
-    try:
-        raw_reply = llm.complete(system_prompt, user_prompt, temperature=0.2, max_tokens=1500)
-        # Parse JSON array
-        cleaned_json = raw_reply.strip()
-        if cleaned_json.startswith("```"):
-            cleaned_json = re.sub(r"^```(?:json)?\s*", "", cleaned_json)
-            cleaned_json = re.sub(r"\s*```$", "", cleaned_json)
-        items = json.loads(cleaned_json)
-    except Exception:
-        # Fallback heuristic parser if LLM output didn't parse cleanly as pure JSON
-        items = []
+    raw_reply = llm.complete(system_prompt, user_prompt, temperature=0.2, max_tokens=3500)   # AI errors reach the admin
+    items = parse_json_list(raw_reply)
+    if not items:                                           # plain "Q: ... A: ..." style reply
         pattern = re.compile(r"Q(?:uestion)?:\s*(.*?)\nA(?:nswer)?:\s*(.*?)(?=\nQ:|\Z)", re.DOTALL | re.IGNORECASE)
-        for m in pattern.finditer(raw_reply):
-            items.append({
-                "question": m.group(1).strip(),
-                "answer": m.group(2).strip(),
-                "page": chunks_info[0]["page"] if chunks_info else 1
-            })
+        items = [{"question": m.group(1).strip(), "answer": m.group(2).strip(),
+                  "page": chunks_info[0]["page"] if chunks_info else 1} for m in pattern.finditer(raw_reply)]
 
     created_cards = []
     now = now_iso()
@@ -172,7 +161,10 @@ def generate_flashcards(
             a = str(item.get("answer", "")).strip()
             if not q or not a:
                 continue
-            page = int(item.get("page", chunks_info[0]["page"] if chunks_info else 1))
+            try:
+                page = int(item.get("page", chunks_info[0]["page"] if chunks_info else 1))
+            except (TypeError, ValueError):
+                page = chunks_info[0]["page"] if chunks_info else 1
             cid = f"fc_{uuid.uuid4().hex[:10]}"
 
             c.execute(

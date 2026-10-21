@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import config
+from .jsonparse import parse_json_list
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS glossary (
@@ -87,15 +88,7 @@ def extract_glossary(
 
     user_prompt = f"LECTURE EXCERPTS:\n\n{context_str}"
 
-    try:
-        reply = llm.complete(system_prompt, user_prompt, temperature=0.1, max_tokens=2000)
-        cleaned = reply.strip()
-        if cleaned.startswith("```"):
-            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-            cleaned = re.sub(r"\s*```$", "", cleaned)
-        items = json.loads(cleaned)
-    except Exception:
-        items = []
+    items = parse_json_list(llm.complete(system_prompt, user_prompt, temperature=0.1, max_tokens=3500))
 
     entries: list[GlossaryEntry] = []
     now = now_iso()
@@ -106,7 +99,10 @@ def extract_glossary(
             definition = str(item.get("definition", "")).strip()
             if not term or not definition:
                 continue
-            page = int(item.get("source_page", 1))
+            try:
+                page = int(item.get("source_page", 1))
+            except (TypeError, ValueError):
+                page = 1
             related = item.get("related_terms", [])
             gid = f"gl_{uuid.uuid4().hex[:10]}"
 

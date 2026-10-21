@@ -53,6 +53,9 @@ async def generate_flashcards_endpoint(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+    if not cards:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="No flashcards were made. The document may have no readable text, or the AI reply could not be read. Please try again.")
     analytics.log_activity("flashcard", "Generated Flashcards", f"Created {len(cards)} cards ({payload.difficulty})", payload.course_id)
 
     return [
@@ -354,6 +357,9 @@ async def extract_glossary_endpoint(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+    if not entries:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail="No glossary terms were made. The document may have no readable text, or the AI reply could not be read. Please try again.")
     return [
         GlossaryResponse(
             id=g.id,

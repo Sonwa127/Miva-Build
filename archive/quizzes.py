@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import config
+from .jsonparse import parse_json_list
+from .llm import LLMError
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS quizzes (
@@ -136,24 +138,9 @@ def generate_quiz(
 
     user_prompt = f"EXCERPTS:\n\n{context_str}\n\nTOPIC: {topic or 'Core Concepts'}"
 
-    try:
-        raw_reply = llm.complete(system_prompt, user_prompt, temperature=0.2, max_tokens=2000)
-        cleaned_json = raw_reply.strip()
-        if cleaned_json.startswith("```"):
-            cleaned_json = re.sub(r"^```(?:json)?\s*", "", cleaned_json)
-            cleaned_json = re.sub(r"\s*```$", "", cleaned_json)
-        items = json.loads(cleaned_json)
-    except Exception:
-        # Fallback question if model generation hit parsing issue
-        items = [
-            {
-                "question": f"Key concept from {topic or 'course materials'}:",
-                "choices": ["Option A", "Option B", "Option C", "Option D"],
-                "correct_index": 0,
-                "explanation": "Derived from page content.",
-                "page": chunks_info[0]["page"]
-            }
-        ]
+    items = parse_json_list(llm.complete(system_prompt, user_prompt, temperature=0.2, max_tokens=3500))
+    if not items:
+        raise LLMError("The AI replied, but its quiz could not be read. Nothing was published. Please try again.")
 
     quiz_id = f"q_{uuid.uuid4().hex[:10]}"
     title = f"{topic or 'Practice Quiz'} ({chunks_info[0]['title'] if chunks_info else 'Lecture'})"
