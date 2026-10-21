@@ -3,8 +3,35 @@
 {% block content %}
 <div class="breadcrumbs"><a href="/courses">Courses</a> / {{ course.code }}</div>
 <section class="page-heading"><div><div class="eyebrow">{{ course.code }} · Free course companion</div><h1>{{ course.name }}</h1><p>{{ course.description or 'Additional resources to help you follow along, revise, and understand the course.' }}</p></div><a href="/ask?course_id={{ course.code | urlencode }}" class="btn secondary">Ask about this course</a></section>
-<div class="section-heading"><h2>Readings, videos & useful links</h2><span class="muted">{{ documents | length + resources | length }} resources</span></div>
-<div class="resource-grid">{% include '_resource_cards.html' %}{% if not documents and not resources %}<div class="empty-state">Resources for this course are being prepared. Check back soon.</div>{% endif %}</div>
+<div class="course-overview"><span>{{ weeks | length }} {{ 'week' if weeks | length == 1 else 'weeks' }}</span><span>{{ documents | length + resources | length }} {{ 'resource' if documents | length + resources | length == 1 else 'resources' }}</span><span>Study at your own pace</span></div>
+<div class="course-layout">
+  <nav class="course-outline" aria-label="Course materials by week">
+    <div class="eyebrow">Your course guide</div>
+    <a href="#general-materials" class="outline-general"><span>General course materials</span><small>{{ general_documents | length + general_resources | length }} {{ 'resource' if general_documents | length + general_resources | length == 1 else 'resources' }}</small></a>
+    <div class="outline-divider">Weekly learning</div>
+    {% for week in weeks %}<a href="#week-{{ week.number }}" data-week-link="week-{{ week.number }}"><span class="outline-week-number">{{ '%02d' | format(week.number) }}</span><span><strong>Week {{ week.number }}</strong>{% if week.title %}<small>{{ week.title }}</small>{% endif %}</span><span class="outline-count">{{ week.resource_count }}</span></a>{% else %}<p class="muted" style="font-size:12px;padding:8px">The weekly outline will appear here when it is ready.</p>{% endfor %}
+  </nav>
+  <div class="course-materials">
+    <section id="general-materials" class="general-materials-section">
+      <div class="section-heading"><div><div class="eyebrow">The bigger picture</div><h2>General course materials</h2></div><span class="resource-tag pdf">Start here</span></div>
+      <p class="section-description">Full course notes, textbooks, and references to support your understanding throughout the course.</p>
+      <div class="resource-grid">{% with documents=general_documents, resources=general_resources %}{% include '_resource_cards.html' %}{% endwith %}{% if not general_documents and not general_resources %}<div class="empty-state">General readings and references will appear here when they are added.</div>{% endif %}</div>
+    </section>
+    <div class="section-heading"><div><div class="eyebrow">One step at a time</div><h2>Week-by-week learning</h2></div><span class="muted">{{ weeks | length }} {{ 'week' if weeks | length == 1 else 'weeks' }}</span></div>
+    <p class="section-description">Follow each week's readings, video lessons, and extra resources alongside your classes.</p>
+    <div class="course-week-list">
+    {% for week in weeks %}
+      <details id="week-{{ week.number }}" class="course-week" {% if loop.first %}open{% endif %}>
+        <summary><span class="week-number-badge">{{ '%02d' | format(week.number) }}</span><span class="week-summary-text"><span class="eyebrow">Week {{ week.number }}</span><strong>{{ week.title or 'Weekly learning materials' }}</strong></span><span class="week-resource-count">{{ week.resource_count }} {{ 'resource' if week.resource_count == 1 else 'resources' }}</span><span class="week-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="week-body">
+          {% if week.description %}<p class="section-description">{{ week.description }}</p>{% endif %}
+          <div class="resource-grid">{% with documents=week.documents, resources=week.resources %}{% include '_resource_cards.html' %}{% endwith %}{% if not week.documents and not week.resources %}<div class="empty-state">Materials for this week are being prepared. General course materials are available above.</div>{% endif %}</div>
+        </div>
+      </details>
+    {% else %}<div class="empty-state">Weekly lessons are being organised. You can start with the general course materials above.</div>{% endfor %}
+    </div>
+  </div>
+</div>
 {% if summaries %}
 <div class="section-heading"><h2>Quick revision notes</h2></div>
 <div class="admin-list">
@@ -17,3 +44,15 @@
 {% endif %}
 <div class="notice" style="margin-top:28px">Looking for more? <a href="/resources">Browse the full library</a>, including general study resources.</div>
 {% endblock %}
+{% block extra_scripts %}<script>
+function revealWeek() {
+  const target = document.getElementById(location.hash.slice(1));
+  if (target?.classList.contains('course-week')) target.open = true;
+}
+document.querySelectorAll('[data-week-link]').forEach(link => link.addEventListener('click', () => {
+  const week = document.getElementById(link.dataset.weekLink);
+  if (week) week.open = true;
+}));
+window.addEventListener('hashchange', revealWeek);
+revealWeek();
+</script>{% endblock %}

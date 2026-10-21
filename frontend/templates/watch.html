@@ -2,7 +2,7 @@
 {% block title %}{{ resource.title }} · {{ 'Video playlist' if resource.is_playlist else 'Video lesson' }}{% endblock %}
 {% block content %}
 <div class="watch-layout">
-  <div class="breadcrumbs"><a href="/resources">Resources</a> / {{ resource.course or 'General study' }}</div>
+  <div class="breadcrumbs"><a href="/resources">Resources</a> / {% if resource.course %}<a href="/courses/{{ resource.course | urlencode }}#{{ 'week-' ~ resource.week if resource.week else 'general-materials' }}">{{ resource.course }} · {{ 'Week ' ~ resource.week if resource.week else 'General course materials' }}</a>{% else %}General study{% endif %}</div>
   <section class="page-heading"><div><div class="eyebrow">{{ resource.provider }} · {{ 'Playlist' if resource.is_playlist else 'Video lesson' }} · {{ resource.course or 'General resources' }}</div><h1>{{ resource.title }}</h1></div></section>
   {% if resource.player_type == 'file' %}
   <video class="video-player" controls playsinline preload="metadata" aria-label="{{ resource.title }}" src="{{ resource.embed_url }}">Your browser cannot play this video. <a href="{{ resource.url }}">Open the video file</a>.</video>

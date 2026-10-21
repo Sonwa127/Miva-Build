@@ -52,6 +52,7 @@ def ingest_pdf(path: Path, store: VectorStore, course: str = "",
             filename=path.name, path=str(path.resolve()),
             page_count=meta["page_count"], chunk_count=len(chunks),
             ingested_at=registry.now_iso(),
+            week=existing.week if existing else 0,
         ))
         return IngestResult(path, "ingested", doc_id, meta["page_count"], len(chunks))
     except Exception as e:  # one bad PDF must not stop a batch

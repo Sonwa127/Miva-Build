@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from archive import courses, registry, resources
+from archive import courses, course_weeks, registry, resources
 from ..models import CourseCreate, CourseResponse, CourseUpdate
 from ..auth import require_admin
 
@@ -125,8 +125,8 @@ async def update_course(course_id: str, payload: CourseUpdate):
 async def delete_course(course_id: str):
     """Delete a course."""
     existing = courses.get_course(course_id)
-    if existing and (registry.list_all(existing.code) or resources.list_resources(existing.code)):
-        raise HTTPException(409, "Remove this course's PDFs, videos, and links before deleting it.")
+    if existing and (registry.list_all(existing.code) or resources.list_resources(existing.code) or course_weeks.list_weeks(existing.code)):
+        raise HTTPException(409, "Remove this course's PDFs, videos, links, and weeks before deleting it.")
     ok = courses.delete_course(course_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found.")

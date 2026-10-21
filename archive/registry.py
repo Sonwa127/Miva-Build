@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from . import config
+from .schema import ensure_week_column
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -34,6 +35,7 @@ class DocRecord:
     page_count: int
     chunk_count: int
     ingested_at: str
+    week: int = 0
 
 
 @contextmanager
@@ -42,6 +44,7 @@ def _conn():
     con = sqlite3.connect(config.REGISTRY_DB)
     con.row_factory = sqlite3.Row
     con.executescript(_SCHEMA)
+    ensure_week_column(con, "documents")
     try:
         yield con
         con.commit()
@@ -65,19 +68,30 @@ def get(doc_id: str) -> DocRecord | None:
 def add(rec: DocRecord) -> None:
     with _conn() as c:
         c.execute(
-            "INSERT OR REPLACE INTO documents VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO documents (doc_id, sha256, title, course, filename, path, page_count, chunk_count, ingested_at, week) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (rec.doc_id, rec.sha256, rec.title, rec.course, rec.filename,
-             rec.path, rec.page_count, rec.chunk_count, rec.ingested_at),
+             rec.path, rec.page_count, rec.chunk_count, rec.ingested_at, rec.week),
         )
 
 
-def list_all(course: str | None = None) -> list[DocRecord]:
+def list_all(course: str | None = None, week: int | None = None) -> list[DocRecord]:
     with _conn() as c:
+        filters, values = [], []
         if course:
-            rows = c.execute("SELECT * FROM documents WHERE course = ? ORDER BY title", (course,)).fetchall()
-        else:
-            rows = c.execute("SELECT * FROM documents ORDER BY course, title").fetchall()
+            filters.append("course = ?")
+            values.append(course)
+        if week is not None:
+            filters.append("week = ?")
+            values.append(week)
+        where = " WHERE " + " AND ".join(filters) if filters else ""
+        rows = c.execute("SELECT * FROM documents" + where + " ORDER BY course, week, title", values).fetchall()
     return [DocRecord(**r) for r in rows]
+
+
+def set_week(doc_id: str, week: int) -> DocRecord | None:
+    with _conn() as c:
+        c.execute("UPDATE documents SET week = ? WHERE doc_id = ?", (week, doc_id))
+    return get(doc_id)
 
 
 def remove(doc_id: str) -> bool:

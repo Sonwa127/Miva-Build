@@ -9,7 +9,7 @@ from api.app import app
 from api.auth import COOKIE_NAME, configure_admin
 from api.deps import get_store
 from api.routes import admin
-from archive import analytics, config, courses, registry, resources, summaries, glossary
+from archive import analytics, config, courses, course_weeks, registry, resources, summaries, glossary
 
 
 @pytest.fixture
@@ -280,3 +280,116 @@ def test_admin_publishes_and_edits_multiple_video_providers(library, url, expect
     assert "Updated collection" in client.get("/resources?kind=video").text
     assert ("Updated collection" in client.get("/resources?kind=playlist").text) is resource["is_playlist"]
     assert "Updated collection" in client.get(f"/courses/{course.id}").text
+
+
+def test_course_weeks_are_admin_managed_and_numerically_ordered(library):
+    client, course, _ = library
+    path = f"/api/courses/{course.id}/weeks"
+    assert client.post(path, json={"number":1}).status_code == 401
+    assert client.delete(path + "/1").status_code == 401
+    sign_in(client)
+    for number in [10, 2, 1]:
+        response = client.post(path, json={"number":number, "title":f"Topic {number}", "description":"Learning goals"})
+        assert response.status_code == 200, response.text
+    assert [week["number"] for week in client.get(path).json()] == [1, 2, 10]
+    assert client.post(path, json={"number":2, "title":"Updated topic"}).status_code == 200
+    assert len(client.get(path).json()) == 3
+    assert client.get(path).json()[1]["title"] == "Updated topic"
+    for invalid in [0, -1, 53, 1.5, True, "2"]:
+        assert client.post(path, json={"number":invalid}).status_code == 422
+    assert client.post("/api/courses/missing/weeks", json={"number":1}).status_code == 404
+    assert client.delete(path + "/10").status_code == 204
+    assert client.delete(path + "/10").status_code == 404
+    client.cookies.clear()
+    page = client.get(f"/courses/{course.id}")
+    assert page.status_code == 200
+    assert page.text.index('id="week-1"') < page.text.index('id="week-2"')
+    assert "Updated topic" in page.text
+
+
+def test_general_and_weekly_materials_are_separate_and_can_be_moved(library):
+    client, course, tmp_path = library
+    pdf_path = add_original_pdf(tmp_path, course)
+    sign_in(client)
+    week_path = f"/api/courses/{course.id}/weeks"
+    client.post(week_path, json={"number":1,"title":"Getting started"})
+    payload = {"title":"Weekly worked examples", "kind":"link", "url":"https://example.org/examples", "course":course.code,"week":1}
+    weekly = client.post("/api/resources", json=payload)
+    assert weekly.status_code == 201, weekly.text
+    resource_id = weekly.json()["id"]
+    general = client.post("/api/resources", json={**payload,"title":"Full course reference","week":0}).json()
+    page = client.get(f"/courses/{course.id}").text
+    general_section = page.split('id="general-materials"',1)[1].split('</section>',1)[0]
+    week_section = page.split('id="week-1"',1)[1].split('</details>',1)[0]
+    assert "Formatted lecture" in general_section and "Full course reference" in general_section
+    assert "Weekly worked examples" not in general_section
+    assert "Weekly worked examples" in week_section and "Formatted lecture" not in week_section
+    assert len(client.get("/api/resources",params={"course":course.code,"week":1}).json()) == 1
+    assert client.get("/api/resources",params={"course":course.code,"week":0}).json()[0]["id"] == general["id"]
+    assert client.patch("/api/documents/layout-test/placement",json={"week":1}).status_code == 200
+    assert registry.get("layout-test").week == 1
+    assert client.get("/api/documents/layout-test/file").content == pdf_path.read_bytes()
+    assert client.get("/api/documents",params={"course":course.code,"week":0}).json() == []
+    assert client.get("/api/documents",params={"course":course.code,"week":1}).json()[0]["week"] == 1
+    assert client.delete(week_path + "/1").status_code == 409
+    # Legacy clients editing details without a week field preserve the placement.
+    payload.pop("week")
+    assert client.put(f"/api/resources/{resource_id}",json=payload).json()["week"] == 1
+    assert client.put(f"/api/resources/{resource_id}",json={**payload,"week":0}).json()["week"] == 0
+    assert client.patch("/api/documents/layout-test/placement",json={"week":0}).json()["week"] == 0
+    assert client.delete(week_path + "/1").status_code == 204
+    client.cookies.clear()
+    assert client.patch("/api/documents/layout-test/placement",json={"week":1}).status_code == 401
+
+
+def test_week_placement_must_belong_to_selected_course(library):
+    client, course, tmp_path = library
+    add_original_pdf(tmp_path, course)
+    other = courses.create_course("STA 111","Descriptive Statistics")
+    course_weeks.save_week(course.code,1,"Motion")
+    sign_in(client)
+    payload = {"title":"Extra reading", "kind":"link", "url":"https://example.org/reading", "course":other.code,"week":1}
+    assert client.post("/api/resources",json=payload).status_code == 422
+    payload["course"] = ""
+    assert client.post("/api/resources",json=payload).status_code == 422
+    for week in [-1,53,True,1.5]:
+        assert client.patch("/api/documents/layout-test/placement",json={"week":week}).status_code == 422
+    assert client.patch("/api/documents/layout-test/placement",json={"week":2}).status_code == 422
+    assert client.patch("/api/documents/missing/placement",json={"week":0}).status_code == 404
+    assert client.get("/api/documents?week=-1").status_code == 422
+    assert client.get("/api/resources?week=53").status_code == 422
+
+
+def test_pdf_upload_keeps_week_on_reupload_and_rejects_accidental_moves(library):
+    client, course, _ = library
+    sign_in(client)
+    course_weeks.save_week(course.code,1)
+    course_weeks.save_week(course.code,2)
+    with fitz.open() as pdf:
+        pdf.new_page().draw_rect(fitz.Rect(20,20,100,100),fill=(0.2,0.4,0.7))
+        content = pdf.tobytes()
+    def upload(week=None):
+        data = {"course":course.code}
+        if week is not None:
+            data["week"] = str(week)
+        return client.post("/api/documents/upload",data=data,files={"file":("weekly.pdf",content,"application/pdf")})
+    first = upload(1)
+    assert first.status_code == 201, first.text
+    assert first.json()["week"] == 1
+    repeated = upload()
+    assert repeated.status_code == 201 and repeated.json()["week"] == 1
+    assert upload(2).status_code == 409
+    assert registry.get(first.json()["doc_id"]).week == 1
+    assert upload(3).status_code == 422
+
+
+def test_week_titles_are_escaped_and_course_deletion_respects_outline(library):
+    client, course, _ = library
+    sign_in(client)
+    payload = {"number":1,"title":"<script>alert('week')</script>","description":"<img src=x onerror=alert(1)>"}
+    client.post(f"/api/courses/{course.id}/weeks",json=payload)
+    page = client.get(f"/courses/{course.id}").text
+    assert "<script>alert('week')</script>" not in page
+    assert "&lt;script&gt;" in page and "&lt;img" in page
+    assert client.delete(f"/api/courses/{course.id}").status_code == 409
+    assert client.get("/admin").status_code == 200

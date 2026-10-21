@@ -1,7 +1,7 @@
 {% extends 'public_base.html' %}
 {% block title %}{{ document.title }} · PDF reader{% endblock %}
 {% block content %}
-<div class="breadcrumbs"><a href="/resources">Resource library</a> / {{ document.course or 'Reading' }}</div>
+<div class="breadcrumbs"><a href="/resources">Resource library</a> / {% if document.course %}<a href="/courses/{{ document.course | urlencode }}#{{ 'week-' ~ document.week if document.week else 'general-materials' }}">{{ document.course }} · {{ 'Week ' ~ document.week if document.week else 'General course materials' }}</a>{% else %}Reading{% endif %}</div>
 <section class="page-heading"><div><div class="eyebrow">{{ document.course }} · PDF reading</div><h1>{{ document.title }}</h1><p>{{ document.filename }} · {{ document.page_count }} pages · Original page layout</p></div><a class="btn secondary" href="/api/documents/{{ doc_id }}/file?download=true">Download PDF ↓</a></section>
 <div class="reader-toolbar">
   <div class="reader-controls">

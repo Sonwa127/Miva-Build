@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import asdict
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Response, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, Response, status
 from fastapi.responses import FileResponse
 
-from archive import analytics, config, courses, ingest, registry
+from archive import analytics, config, courses, course_weeks, ingest, registry
 from archive.store import VectorStore
 from ..deps import get_store
-from ..models import ChunkResponse, DocumentResponse, PageContentResponse
+from ..models import ChunkResponse, DocumentPlacementUpdate, DocumentResponse, PageContentResponse
 from ..auth import require_admin
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
@@ -21,6 +22,7 @@ def upload_document(
     course: str = Form(""),
     force: bool = Form(False),
     ocr: bool = Form(False),
+    week: int | None = Form(None, ge=0, le=52),
     store: VectorStore = Depends(get_store),
 ):
     """Upload and ingest a PDF lecture or course reading."""
@@ -38,6 +40,10 @@ def upload_document(
             detail="Select an existing course before uploading a document.",
         )
     course = course_record.code
+    try:
+        course_weeks.validate_placement(course, week or 0)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
 
     upload_dir = config.DATA_DIR / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -73,6 +79,10 @@ def upload_document(
             detail=f"This PDF is already indexed under course '{existing.course}'.",
         )
 
+    if existing and week is not None and week != existing.week:
+        temp_path.unlink(missing_ok=True)
+        raise HTTPException(409, "This PDF is already published. Use Edit placement in the PDF list to move it to another week.")
+
     if existing and Path(existing.path).is_file():
         temp_path.unlink(missing_ok=True)
         stored_path = Path(existing.path)
@@ -97,11 +107,14 @@ def upload_document(
                 doc_id=sha[:12], sha256=sha, title=pdf.metadata.get("title") or stored_path.stem,
                 course=course, filename=stored_path.name, path=str(stored_path.resolve()),
                 page_count=len(pdf), chunk_count=0, ingested_at=registry.now_iso(),
+                week=existing.week if existing else (week or 0),
             ))
 
     rec = registry.get_by_hash(sha)
     if not rec:
         raise HTTPException(status_code=500, detail="Could not register document.")
+    if not existing and week:
+        rec = registry.set_week(rec.doc_id, week)
 
     # Log to activity feed
     analytics.log_activity("document", "Indexed Document", f"{rec.title} • {rec.page_count} pages", rec.course)
@@ -116,13 +129,14 @@ def upload_document(
         page_count=rec.page_count,
         chunk_count=rec.chunk_count,
         ingested_at=rec.ingested_at,
+        week=rec.week,
     )
 
 
 @router.get("", response_model=list[DocumentResponse])
-async def list_documents(course: str | None = None):
+async def list_documents(course: str | None = None, week: int | None = Query(None, ge=0, le=52)):
     """List all ingested course documents."""
-    docs = registry.list_all(course)
+    docs = registry.list_all(course, week)
     return [
         DocumentResponse(
             doc_id=d.doc_id,
@@ -134,6 +148,7 @@ async def list_documents(course: str | None = None):
             page_count=d.page_count,
             chunk_count=d.chunk_count,
             ingested_at=d.ingested_at,
+            week=d.week,
         )
         for d in docs
     ]
@@ -155,7 +170,20 @@ async def get_document(doc_id: str):
         page_count=d.page_count,
         chunk_count=d.chunk_count,
         ingested_at=d.ingested_at,
+        week=d.week,
     )
+
+
+@router.patch("/{doc_id}/placement", response_model=DocumentResponse, dependencies=[Depends(require_admin)])
+def update_document_placement(doc_id: str, payload: DocumentPlacementUpdate):
+    document = registry.get(doc_id)
+    if not document:
+        raise HTTPException(404, "Document not found.")
+    try:
+        course_weeks.validate_placement(document.course, payload.week)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    return DocumentResponse(**asdict(registry.set_week(doc_id, payload.week)))
 
 
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])

@@ -12,6 +12,7 @@
         <div class="field"><label for="resourceTitle">Title</label><input name="title" id="resourceTitle" required maxlength="200" placeholder="e.g. Understanding Newton’s laws"></div>
         <div class="field"><label for="resourceUrl">Video, playlist, or website link</label><input name="url" id="resourceUrl" type="url" required maxlength="2048" placeholder="https://vimeo.com/showcase/…"><small>YouTube videos/playlists, Vimeo videos/showcases, Loom recordings, Dailymotion player URLs, and HTTPS MP4/WebM files play here. Paste a URL, not iframe HTML.</small></div>
         <div class="field"><label for="resourceCourse">Course</label><select name="course" id="resourceCourse"><option value="">General resources</option>{% for course in courses %}<option value="{{ course.code }}">{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="resourceWeek">Where does this belong?</label><select name="week" id="resourceWeek"><option value="0">General course materials</option></select><small>Select a course to see its weeks. Create weeks below before assigning materials.</small></div>
         <div class="field"><label for="resourceDescription">What will this help with?</label><textarea name="description" id="resourceDescription" maxlength="5000" placeholder="Add a short description or study tip."></textarea></div>
         <p class="error-message" id="resourceError" role="alert"></p>
         <div class="card-actions"><button class="btn" type="submit" id="resourceSave">Publish resource</button><button class="btn secondary" type="reset" id="cancelResource" hidden>Cancel edit</button></div>
@@ -22,10 +23,24 @@
       <p class="muted" style="font-size:13px;margin:8px 0 18px">Original pages keep their formatting. Text is also indexed for course questions.</p>
       <form id="pdfForm">
         <div class="field"><label for="pdfCourse">Course</label><select name="course" id="pdfCourse" required><option value="">Select course…</option>{% for course in courses %}<option value="{{ course.code }}">{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="pdfWeek">Where does this belong?</label><select name="week" id="pdfWeek"><option value="0">General course materials</option></select><small>Keep full textbooks and complete course notes in General course materials.</small></div>
         <div class="field"><label for="pdfFile">PDF file</label><input name="file" id="pdfFile" type="file" accept="application/pdf,.pdf" required></div>
         <div class="field"><label><input name="ocr" type="checkbox" value="true">Enable OCR for scanned pages</label></div>
         <p class="error-message" id="pdfError" role="alert"></p><p class="muted" id="pdfStatus" role="status"></p>
         <button class="btn" type="submit">Upload & publish PDF</button>
+      </form>
+    </section>
+    <section class="panel" id="pdfPlacementPanel" hidden>
+      <h2>Move an existing PDF</h2><p class="muted" id="pdfPlacementName" style="font-size:13px;margin:10px 0"></p>
+      <form id="pdfPlacementForm"><input name="doc_id" type="hidden"><div class="field"><label for="pdfPlacementWeek">Course section</label><select name="week" id="pdfPlacementWeek"></select><small>The original file and search index are kept intact.</small></div><p id="pdfPlacementError" class="error-message" role="alert"></p><div class="card-actions"><button type="submit" class="btn">Save placement</button><button type="button" class="btn secondary" id="cancelPdfPlacement">Cancel</button></div></form>
+    </section>
+    <section class="panel" id="weekPanel">
+      <h2 id="weekFormTitle">Create a course week</h2><p class="muted" style="font-size:13px;margin:8px 0 18px">Give each week a topic, then assign readings, videos, and links. General course materials stay separate.</p>
+      <form id="weekForm">
+        <div class="field"><label for="weekCourse">Course</label><select name="course" id="weekCourse" required><option value="">Select course…</option>{% for course in courses %}<option value="{{ course.code }}">{{ course.code }} · {{ course.name }}</option>{% endfor %}</select></div>
+        <div class="form-row"><div class="field"><label for="weekNumber">Week number</label><input name="number" id="weekNumber" type="number" min="1" max="52" required placeholder="1"></div><div class="field"><label for="weekTitle">Topic (optional)</label><input name="title" id="weekTitle" maxlength="200" placeholder="Introduction to statistics"></div></div>
+        <div class="field"><label for="weekDescription">What will students learn?</label><textarea name="description" id="weekDescription" maxlength="5000" placeholder="Learning goals or a short guide for the week."></textarea></div>
+        <p id="weekError" class="error-message" role="alert"></p><div class="card-actions"><button type="submit" class="btn">Save week</button><button type="reset" class="btn secondary" id="cancelWeek" hidden>Cancel edit</button></div>
       </form>
     </section>
     <section class="panel" id="coursePanel">
@@ -55,15 +70,19 @@
       <button class="btn secondary small" type="button" role="tab" id="tab-resources" aria-controls="section-resources" aria-selected="true" data-admin-tab="resources">Videos & links ({{ resources | length }})</button>
       <button class="btn secondary small" type="button" role="tab" id="tab-pdfs" aria-controls="section-pdfs" aria-selected="false" data-admin-tab="pdfs">PDFs ({{ documents | length }})</button>
       <button class="btn secondary small" type="button" role="tab" id="tab-courses" aria-controls="section-courses" aria-selected="false" data-admin-tab="courses">Courses ({{ courses | length }})</button>
+      <button class="btn secondary small" type="button" role="tab" id="tab-weeks" aria-controls="section-weeks" aria-selected="false" data-admin-tab="weeks">Weeks ({{ course_weeks | length }})</button>
     </div>
     <section class="admin-section admin-list" id="section-resources" role="tabpanel" aria-labelledby="tab-resources">
-      {% for resource in resources %}<article class="admin-item"><div><span class="resource-tag">{{ resource.provider }}{{ ' playlist' if resource.is_playlist else '' }} · {{ resource.course or 'General' }}</span><h3 style="margin-top:8px">{{ resource.title }}</h3><small>{{ resource.description | truncate(160) }}</small></div><div class="card-actions">{% if resource.is_video %}<a class="btn secondary small" href="/watch/{{ resource.id }}" target="_blank" rel="noopener">Preview</a>{% endif %}<button type="button" class="btn secondary small" data-edit-resource="{{ resource.id }}">Edit</button><button type="button" class="btn danger small" data-delete-resource="{{ resource.id }}">Delete</button></div></article>{% else %}<div class="empty-state">Your published videos, playlists, and links will appear here. Paste a video or playlist link to add the first one.</div>{% endfor %}
+      {% for resource in resources %}<article class="admin-item"><div><span class="resource-tag">{{ resource.provider }}{{ ' playlist' if resource.is_playlist else '' }} · {{ resource.course or 'General' }} · {{ 'Week ' ~ resource.week if resource.week else 'General material' }}</span><h3 style="margin-top:8px">{{ resource.title }}</h3><small>{{ resource.description | truncate(160) }}</small></div><div class="card-actions">{% if resource.is_video %}<a class="btn secondary small" href="/watch/{{ resource.id }}" target="_blank" rel="noopener">Preview</a>{% endif %}<button type="button" class="btn secondary small" data-edit-resource="{{ resource.id }}">Edit</button><button type="button" class="btn danger small" data-delete-resource="{{ resource.id }}">Delete</button></div></article>{% else %}<div class="empty-state">Your published videos, playlists, and links will appear here. Paste a video or playlist link to add the first one.</div>{% endfor %}
     </section>
     <section class="admin-section admin-list" id="section-pdfs" role="tabpanel" aria-labelledby="tab-pdfs" hidden>
-      {% for document in documents %}<article class="admin-item"><div><span class="resource-tag pdf">{{ document.course or 'Unassigned' }}</span><h3 style="margin-top:8px">{{ document.filename }}</h3><small>{{ document.page_count }} pages · {{ document.chunk_count }} indexed chunks</small></div><div class="card-actions"><a class="btn secondary small" href="/viewer/{{ document.doc_id }}" target="_blank">Preview</a><button type="button" class="btn danger small" data-delete-document="{{ document.doc_id }}">Remove</button></div></article>{% else %}<div class="empty-state">Upload a PDF to publish your first reading.</div>{% endfor %}
+      {% for document in documents %}<article class="admin-item"><div><span class="resource-tag pdf">{{ document.course or 'Unassigned' }} · {{ 'Week ' ~ document.week if document.week else 'General course material' }}</span><h3 style="margin-top:8px">{{ document.filename }}</h3><small>{{ document.page_count }} pages · {{ document.chunk_count }} indexed chunks</small></div><div class="card-actions"><a class="btn secondary small" href="/viewer/{{ document.doc_id }}" target="_blank">Preview</a><button type="button" class="btn secondary small" data-edit-document="{{ document.doc_id }}">Edit placement</button><button type="button" class="btn danger small" data-delete-document="{{ document.doc_id }}">Remove</button></div></article>{% else %}<div class="empty-state">Upload a PDF to publish your first reading.</div>{% endfor %}
     </section>
     <section class="admin-section admin-list" id="section-courses" role="tabpanel" aria-labelledby="tab-courses" hidden>
       {% for course in courses %}<article class="admin-item"><div><span class="resource-tag">{{ course.code }}</span><h3 style="margin-top:8px">{{ course.name }}</h3><small>{{ course.description | truncate(130) }}</small></div><div class="card-actions"><button type="button" class="btn secondary small" data-edit-course="{{ course.id }}">Edit</button><button type="button" class="btn danger small" data-delete-course="{{ course.id }}">Delete</button></div></article>{% else %}<div class="empty-state">Add a course before uploading PDFs.</div>{% endfor %}
+    </section>
+    <section class="admin-section admin-list" id="section-weeks" role="tabpanel" aria-labelledby="tab-weeks" hidden>
+      {% for week in course_weeks %}<article class="admin-item"><div><span class="resource-tag">{{ week.course }} · Week {{ week.number }}</span><h3 style="margin-top:8px">{{ week.title or 'Weekly learning materials' }}</h3><small>{{ week.description | truncate(160) }}</small></div><div class="card-actions"><button type="button" class="btn secondary small" data-edit-week="{{ week.number }}" data-course="{{ week.course }}">Edit</button><button type="button" class="btn danger small" data-delete-week="{{ week.number }}" data-course="{{ week.course }}">Delete</button></div></article>{% else %}<div class="empty-state">Create weeks to organise each course. Full course notes and textbooks can stay in General course materials.</div>{% endfor %}
     </section>
   </div>
 </div>
@@ -71,6 +90,18 @@
 {% block extra_scripts %}<script>
 const libraryResources = {{ resources | tojson }};
 const libraryCourses = {{ courses | map(attribute='__dict__') | list | tojson }};
+const libraryWeeks = {{ course_weeks | tojson }};
+const libraryDocuments = {{ documents | map(attribute='__dict__') | list | tojson }};
+function populateWeeks(select, course, selected = 0) {
+  select.replaceChildren(new Option('General course materials', '0'));
+  libraryWeeks.filter(week => week.course === course).forEach(week => {
+    select.add(new Option(`Week ${week.number}${week.title ? ' · ' + week.title : ''}`, String(week.number)));
+  });
+  select.value = String(selected);
+  if (!select.value) select.value = '0';
+}
+document.getElementById('resourceCourse').addEventListener('change', event => populateWeeks(document.getElementById('resourceWeek'), event.target.value));
+document.getElementById('pdfCourse').addEventListener('change', event => populateWeeks(document.getElementById('pdfWeek'), event.target.value));
 function bindForm(id, errorId, action) {
   const form = document.getElementById(id);
   form.addEventListener('submit', async event => {
@@ -86,6 +117,7 @@ function bindForm(id, errorId, action) {
 bindForm('resourceForm', 'resourceError', async form => {
   const values = Object.fromEntries(new FormData(form));
   const id = values.id; delete values.id;
+  values.week = Number(values.week);
   await api(id ? `/api/resources/${encodeURIComponent(id)}` : '/api/resources', id ? 'PUT' : 'POST', values);
   location.reload();
 });
@@ -93,6 +125,17 @@ bindForm('pdfForm', 'pdfError', async form => {
   document.getElementById('pdfStatus').textContent = 'Uploading and indexing. Please keep this page open…';
   try { await api('/api/documents/upload', 'POST', new FormData(form)); location.reload(); }
   finally { document.getElementById('pdfStatus').textContent = ''; }
+});
+bindForm('pdfPlacementForm', 'pdfPlacementError', async form => {
+  await api(`/api/documents/${encodeURIComponent(form.elements.doc_id.value)}/placement`, 'PATCH', {week:Number(form.elements.week.value)});
+  location.reload();
+});
+bindForm('weekForm', 'weekError', async form => {
+  const course = form.elements.course.value;
+  await api(`/api/courses/${encodeURIComponent(course)}/weeks`, 'POST', {
+    number:Number(form.elements.number.value), title:form.elements.title.value, description:form.elements.description.value,
+  });
+  location.reload();
 });
 bindForm('courseForm', 'courseError', async form => {
   const values = Object.fromEntries(new FormData(form));
@@ -119,6 +162,7 @@ document.querySelectorAll('[data-edit-resource]').forEach(button => button.addEv
   const form = document.getElementById('resourceForm');
   ['id','title','url','course','description'].forEach(key => form.elements[key].value = resource[key]);
   form.elements.kind.value = resource.is_video ? 'video' : 'link';
+  populateWeeks(form.elements.week, resource.course, resource.week);
   document.getElementById('resourceFormTitle').textContent = 'Edit resource';
   document.getElementById('resourceSave').textContent = 'Save changes';
   document.getElementById('cancelResource').hidden = false;
@@ -129,7 +173,38 @@ document.getElementById('resourceForm').addEventListener('reset', () => {
   document.getElementById('resourceSave').textContent = 'Publish resource';
   document.getElementById('cancelResource').hidden = true;
   document.getElementById('resourceForm').elements.id.value = '';
+  populateWeeks(document.getElementById('resourceWeek'), '');
 });
+document.querySelectorAll('[data-edit-document]').forEach(button => button.addEventListener('click', () => {
+  const documentRecord = libraryDocuments.find(item => item.doc_id === button.dataset.editDocument);
+  const panel = document.getElementById('pdfPlacementPanel');
+  document.getElementById('pdfPlacementForm').elements.doc_id.value = documentRecord.doc_id;
+  document.getElementById('pdfPlacementName').textContent = `${documentRecord.course} · ${documentRecord.filename}`;
+  populateWeeks(document.getElementById('pdfPlacementWeek'), documentRecord.course, documentRecord.week);
+  panel.hidden = false;
+  panel.scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.getElementById('cancelPdfPlacement').addEventListener('click', () => { document.getElementById('pdfPlacementPanel').hidden = true; });
+document.querySelectorAll('[data-edit-week]').forEach(button => button.addEventListener('click', () => {
+  const week = libraryWeeks.find(item => item.course === button.dataset.course && item.number === Number(button.dataset.editWeek));
+  const form = document.getElementById('weekForm');
+  ['course','number','title','description'].forEach(key => form.elements[key].value = week[key]);
+  form.elements.course.disabled = true; form.elements.number.readOnly = true;
+  document.getElementById('weekFormTitle').textContent = `Edit ${week.course} · Week ${week.number}`;
+  document.getElementById('cancelWeek').hidden = false;
+  document.getElementById('weekPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}));
+document.getElementById('weekForm').addEventListener('reset', () => {
+  const form = document.getElementById('weekForm');
+  form.elements.course.disabled = false; form.elements.number.readOnly = false;
+  document.getElementById('weekFormTitle').textContent = 'Create a course week';
+  document.getElementById('cancelWeek').hidden = true;
+});
+document.querySelectorAll('[data-delete-week]').forEach(button => button.addEventListener('click', async () => {
+  if (!confirm('Delete this week from the course outline? Materials must be reassigned before a week can be removed.')) return;
+  try { await api(`/api/courses/${encodeURIComponent(button.dataset.course)}/weeks/${button.dataset.deleteWeek}`, 'DELETE'); location.reload(); }
+  catch (error) { showToast(error.message, 'error'); }
+}));
 document.querySelectorAll('[data-edit-course]').forEach(button => button.addEventListener('click', () => {
   const course = libraryCourses.find(item => item.id === button.dataset.editCourse);
   const form = document.getElementById('courseForm');

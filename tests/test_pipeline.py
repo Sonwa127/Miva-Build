@@ -74,14 +74,17 @@ def test_ingest_search_dedupe_remove(env):
     again = ingest_pdf(pdf, store, course="Demo")
     assert again.status == "skipped"
     count_before = store.count()
+    registry.set_week(res.doc_id, 3)
     ingest_pdf(pdf, store, course="Demo", force=True)
     assert store.count() == count_before          # force re-ingest does not duplicate
+    assert registry.get(res.doc_id).week == 3
 
     # A stale registry must not make ingestion skip a missing vector index.
     store.delete_doc(res.doc_id)
     repaired = ingest_pdf(pdf, store, course="Demo")
     assert repaired.status == "ingested"
     assert store.count_doc(res.doc_id) == repaired.chunks
+    assert registry.get(res.doc_id).week == 3
 
     assert [d.doc_id for d in registry.list_all()] == [res.doc_id]
     store.delete_doc(res.doc_id)

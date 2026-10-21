@@ -57,6 +57,11 @@ class DocumentResponse(BaseModel):
     page_count: int
     chunk_count: int
     ingested_at: str
+    week: int = 0
+
+
+class DocumentPlacementUpdate(BaseModel):
+    week: int = Field(..., ge=0, le=52, strict=True)
 
 
 class PageContentResponse(BaseModel):

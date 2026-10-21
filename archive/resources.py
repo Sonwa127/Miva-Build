@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from . import config
 from .media import resolve_media
+from .schema import ensure_week_column
 
 
 @contextmanager
@@ -20,6 +21,7 @@ def connection():
         course TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL, url TEXT NOT NULL,
         video_id TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
     )""")
+    ensure_week_column(con, "resources")
     try:
         yield con
         con.commit()
@@ -44,12 +46,17 @@ def _present(row) -> dict:
     return result
 
 
-def list_resources(course: str | None = None) -> list[dict]:
+def list_resources(course: str | None = None, week: int | None = None) -> list[dict]:
     with connection() as con:
+        filters, values = [], []
         if course:
-            rows = con.execute("SELECT * FROM resources WHERE course = ? ORDER BY created_at DESC, id", (course,)).fetchall()
-        else:
-            rows = con.execute("SELECT * FROM resources ORDER BY created_at DESC, id").fetchall()
+            filters.append("course = ?")
+            values.append(course)
+        if week is not None:
+            filters.append("week = ?")
+            values.append(week)
+        where = " WHERE " + " AND ".join(filters) if filters else ""
+        rows = con.execute("SELECT * FROM resources" + where + " ORDER BY created_at DESC, id", values).fetchall()
     return [_present(row) for row in rows]
 
 
@@ -59,16 +66,19 @@ def get_resource(resource_id: str) -> dict | None:
     return _present(row) if row else None
 
 
-def save_resource(title: str, description: str, course: str, kind: str, url: str, resource_id: str | None = None) -> dict:
+def save_resource(title: str, description: str, course: str, kind: str, url: str, resource_id: str | None = None, week: int | None = None) -> dict:
     media = resolve_media(url, kind)
     url, video_id, kind = media.url, media.video_id, media.kind
     resource_id = resource_id or f"r_{uuid.uuid4().hex[:16]}"
     created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with connection() as con:
-        con.execute("""INSERT INTO resources VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        if week is None:
+            existing = con.execute("SELECT week, course FROM resources WHERE id = ?", (resource_id,)).fetchone()
+            week = existing["week"] if existing and existing["course"] == course else 0
+        con.execute("""INSERT INTO resources (id, title, description, course, kind, url, video_id, created_at, week) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET title=excluded.title, description=excluded.description,
-            course=excluded.course, kind=excluded.kind, url=excluded.url, video_id=excluded.video_id""",
-            (resource_id, title.strip(), description.strip(), course, kind, url, video_id, created_at))
+            course=excluded.course, kind=excluded.kind, url=excluded.url, video_id=excluded.video_id, week=excluded.week""",
+            (resource_id, title.strip(), description.strip(), course, kind, url, video_id, created_at, week))
     return get_resource(resource_id)
 
 

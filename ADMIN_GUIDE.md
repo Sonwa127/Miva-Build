@@ -33,6 +33,16 @@ Browser setup is limited to localhost so a public visitor cannot claim the admin
 
 Use **Edit** for video/link details or **Delete** to remove them. Removing a PDF unpublishes it and removes its search index; its stored original is retained on the server. A course with PDFs, videos, or links cannot be deleted until those resources are removed.
 
+## Organising a course by week
+
+In `/admin`, use **Create a course week** to choose the course and a week number (1–52), then add an optional topic and learning goals. The **Weeks** tab lets you edit those details. Weeks are displayed in numerical order on the course page, with a course guide for navigation and a section for each week's PDFs, videos, playlists, and links. Empty weeks can outline upcoming lessons.
+
+Choose **Where does this belong?** when uploading a PDF or publishing a resource. Use a specific week for weekly notes and lessons; use **General course materials** for a full textbook, complete course notes, syllabus, or reference that supports the whole course. General resources without an assigned course remain in the shared library.
+
+Existing PDFs and links automatically remain general course materials when this update is applied. They are not deleted, re-indexed, or assigned to guessed weeks. Use **Edit placement** in the PDF tab or **Edit** on a video/link to assign an existing resource to a week or move it back to General course materials. Force re-indexing and index repair preserve a PDF's placement.
+
+A week containing materials cannot be deleted until its resources are moved or removed; this prevents accidental loss or hidden course content. A course's weeks must also be removed before deleting the course. These changes organise resources without splitting or altering the original PDF files.
+
 ## PDF formatting
 
 The reader displays rendered original PDF pages, preserving fonts, diagrams, equations, columns, tables, colors, and page proportions. Fit width, fit page, zoom, page navigation, direct page links, and downloads are available. **Original PDF view** opens the browser's embedded PDF reader, with selectable text and printing where supported. **Text version of this page** provides indexed text separately, without replacing the original layout.

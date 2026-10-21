@@ -1,10 +1,10 @@
 """Public resource browsing with administrator-only publishing."""
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
-from archive import courses, resources
+from archive import courses, course_weeks, resources
 from ..auth import require_admin
 
 router = APIRouter(prefix="/api/resources", tags=["Resources"])
@@ -16,11 +16,12 @@ class ResourceInput(BaseModel):
     course: str = Field("", max_length=100)
     kind: Literal["video", "youtube", "youtube_playlist", "vimeo", "vimeo_showcase", "loom", "dailymotion", "dailymotion_playlist", "video_file", "link"] = "video"
     url: str = Field(..., max_length=2048)
+    week: int | None = Field(None, ge=0, le=52, strict=True)
 
 
 @router.get("")
-def list_resources(course: str | None = None):
-    return resources.list_resources(course)
+def list_resources(course: str | None = None, week: int | None = Query(None, ge=0, le=52)):
+    return resources.list_resources(course, week)
 
 
 def save(payload: ResourceInput, resource_id: str | None = None):
@@ -29,8 +30,14 @@ def save(payload: ResourceInput, resource_id: str | None = None):
     course = courses.get_course(payload.course) if payload.course else None
     if payload.course and not course:
         raise HTTPException(422, "Select an existing course, or General resources.")
+    course_code = course.code if course else ""
+    existing = resources.get_resource(resource_id) if resource_id else None
+    week = payload.week
+    if week is None:
+        week = existing["week"] if existing and existing["course"] == course_code else 0
     try:
-        return resources.save_resource(payload.title, payload.description, course.code if course else "", payload.kind, payload.url, resource_id)
+        course_weeks.validate_placement(course_code, week)
+        return resources.save_resource(payload.title, payload.description, course_code, payload.kind, payload.url, resource_id, week)
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
 

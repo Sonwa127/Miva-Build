@@ -7,10 +7,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from archive import courses, registry, resources, summaries, glossary
+from archive import config, courses, course_weeks, registry, resources, summaries, glossary
 from archive.llm import LLMError
 from .routes import analytics, courses as courses_router, documents, evaluation, qa, study
 from .routes import admin, resources as resources_router
+from .routes import course_weeks as course_weeks_router
 from .auth import can_setup_locally, is_admin, load_credentials
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -44,6 +45,7 @@ app.include_router(analytics.router)
 app.include_router(evaluation.router)
 app.include_router(admin.router)
 app.include_router(resources_router.router)
+app.include_router(course_weeks_router.router)
 
 
 @app.middleware("http")
@@ -93,11 +95,26 @@ async def course_overview_page(request: Request, course_id: str):
     c = courses.get_course(course_id)
     if not c:
         raise HTTPException(status_code=404, detail="Course not found.")
+    documents_list = registry.list_all(c.code)
+    resources_list = resources.list_resources(c.code)
+    weeks = course_weeks.list_weeks(c.code)
+    # Keep previously assigned materials visible even if an outline was imported
+    # from an older backup without its course-week records.
+    known = {week["number"] for week in weeks}
+    assigned = {doc.week for doc in documents_list} | {item["week"] for item in resources_list}
+    weeks.extend({"course": c.code, "number": number, "title": "", "description": ""} for number in assigned if number and number not in known)
+    weeks.sort(key=lambda week: week["number"])
+    for week in weeks:
+        week["documents"] = [doc for doc in documents_list if doc.week == week["number"]]
+        week["resources"] = [item for item in resources_list if item["week"] == week["number"]]
+        week["resource_count"] = len(week["documents"]) + len(week["resources"])
     return templates.TemplateResponse(
         request=request,
         name="public_course_detail.html",
-        context={"course": c, "active_page": "courses", "documents": registry.list_all(c.code),
-                 "resources": resources.list_resources(c.code),
+        context={"course": c, "active_page": "courses", "documents": documents_list,
+                 "resources": resources_list, "weeks": weeks,
+                 "general_documents": [doc for doc in documents_list if doc.week == 0],
+                 "general_resources": [item for item in resources_list if item["week"] == 0],
                  "summaries": summaries.get_summaries(course_id=c.code),
                  "glossary": glossary.get_glossary(course_id=c.code)},
     )
@@ -129,7 +146,8 @@ async def ask_ai_page(request: Request, course_id: str = ""):
     return templates.TemplateResponse(
         request=request,
         name="ask_ai.html",
-        context={"courses": all_courses, "selected_course": course_id, "active_page": "ask"},
+        context={"courses": all_courses, "selected_course": course_id, "active_page": "ask",
+                 "ai_demo_mode": config.LLM_PROVIDER.lower() == "offline"},
     )
 
 
@@ -191,4 +209,5 @@ async def admin_dashboard_page(request: Request):
     return templates.TemplateResponse(request=request, name="admin.html", context={
         "active_page": "admin", "courses": courses.list_courses(),
         "documents": registry.list_all(), "resources": resources.list_resources(),
+        "course_weeks": course_weeks.list_weeks(),
     })

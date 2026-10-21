@@ -1,25 +1,26 @@
 {% extends "public_base.html" %}
 
 {% block title %}Study & Flashcard Hub — StudyArchive{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/css/private-flashcards.css">{% endblock %}
 
 {% block content %}
 <div class="flex flex-col gap-6 max-w-7xl mx-auto">
   <!-- Top Header Area -->
   <section class="flex flex-col md:flex-row md:items-center justify-between gap-4">
     <div>
-      <div class="text-xs font-semibold text-secondary uppercase tracking-wider">Academic Spaced-Repetition System</div>
+      <div class="text-xs font-semibold text-secondary uppercase tracking-wider">A little practice, a stronger understanding</div>
       <h1 class="text-3xl font-bold text-on-surface tracking-tight mt-0.5">Flashcard Hub & Study Sets</h1>
-      <p class="text-sm text-on-surface-variant">Review free flashcard decks prepared from our course materials. Your progress stays on this device.</p>
+      <p class="text-sm text-on-surface-variant">Create private cards for yourself, or practise with the shared class decks below.</p>
     </div>
     <div class="flex items-center gap-3 self-start md:self-auto flex-wrap">
       <a href="/api/study/flashcards/export" download class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-[#e2e8f0] text-xs font-semibold text-on-surface hover:bg-slate-100 transition-colors">
         <span class="material-symbols-outlined text-[16px]">download</span>
-        <span>Export for Anki (.tsv)</span>
+        <span>Export shared cards (.tsv)</span>
         <span class="text-[9px] bg-slate-200 px-1 rounded">BETA</span>
       </a>
       <button onclick="startReviewQueue()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-teal-800 transition-colors shadow-sm">
         <span class="material-symbols-outlined text-[16px]">school</span>
-        <span>Study All Due Cards (<span id="topDueCount">0</span>)</span>
+        <span>Review shared cards (<span id="topDueCount">0</span>)</span>
       </button>
       {% if is_admin %}<a href="/admin#studyTools" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold hover:bg-primary transition-colors shadow-md">
         <span class="material-symbols-outlined text-[16px]">add</span>
@@ -28,6 +29,8 @@
     </div>
   </section>
 
+  {% include "_private_flashcards.html" %}
+  <div class="shared-library-heading"><h2>Shared class decks</h2><p>Prepared for the class by your administrator. The counts below are for shared cards; your progress stays on this device.</p></div>
   <!-- Metric Overview Cards -->
   <section class="grid grid-cols-1 md:grid-cols-3 gap-5">
     <!-- Due for Review Today -->
@@ -313,6 +316,8 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="/static/js/private-flashcards-store.js" defer></script>
+<script src="/static/js/private-flashcards.js" defer></script>
 <script>
 let allCards = [];
 let queueCards = [];
