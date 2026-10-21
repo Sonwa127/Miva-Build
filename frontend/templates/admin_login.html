@@ -6,8 +6,8 @@
   <p class="muted" style="margin-bottom:24px">Manage the resources you share with your classmates.</p>
   {% if configured %}
   <form id="loginForm">
-    <input type="text" name="username" value="admin" autocomplete="username" hidden>
-    <div class="field"><label for="adminPassword">Administrator password</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" required autofocus maxlength="1024"></div>
+    <div class="field"><label for="adminEmail">Your admin email <small>(collaborators: your student email. Leave empty if you use the main admin password.)</small></label><input id="adminEmail" name="username" type="email" autocomplete="username" maxlength="254"></div>
+    <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" required autofocus maxlength="1024"></div>
     <p id="loginError" class="error-message" role="alert"></p>
     <button class="btn" type="submit" style="width:100%;margin-top:16px">Sign in</button>
   </form>
@@ -55,7 +55,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async event => 
   button.disabled = true;
   document.getElementById('loginError').textContent = '';
   try {
-    await api('/api/admin/login', 'POST', {password: event.target.elements.password.value});
+    await api('/api/admin/login', 'POST', {password: event.target.elements.password.value, email: event.target.elements.username.value.trim() || null});
     location.replace('/admin');
   } catch (error) {
     document.getElementById('loginError').textContent = error.message;

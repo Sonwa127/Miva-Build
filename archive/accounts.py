@@ -58,6 +58,20 @@ CREATE TABLE IF NOT EXISTS login_tokens (
     expires_at INTEGER NOT NULL,
     used_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS admins (
+    account_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    granted_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at TEXT NOT NULL,
+    actor_kind TEXT NOT NULL,
+    actor_id INTEGER,
+    actor_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT ''
+);
 """
 
 
@@ -214,6 +228,7 @@ def set_disabled(account_id: int, disabled: bool) -> bool:
 
 def delete_account(account_id: int) -> bool:
     with _db() as c:
+        c.execute("DELETE FROM admins WHERE account_id=?", (account_id,))     # no orphaned admin rights
         return c.execute("DELETE FROM accounts WHERE id=?", (account_id,)).rowcount == 1
 
 

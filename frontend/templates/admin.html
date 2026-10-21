@@ -1,7 +1,7 @@
 {% extends 'public_base.html' %}
 {% block title %}Resource administration · StudyArchive{% endblock %}
 {% block content %}
-<section class="page-heading"><div><div class="eyebrow">Administrator workspace</div><h1>Share something useful.</h1><p>Manage every PDF, video, course, and extra resource here. Published resources are freely available to your classmates.</p></div><div class="card-actions"><a class="btn secondary" href="/resources" target="_blank">View student library ↗</a><button type="button" class="btn secondary" id="logoutBtn">Sign out</button></div></section>
+<section class="page-heading"><div><div class="eyebrow">Administrator workspace</div><h1>Share something useful.</h1><p>Manage every PDF, video, course, and extra resource here. Published resources are freely available to your classmates.</p></div><div class="card-actions"><a class="btn secondary" href="/resources" target="_blank">View student library ↗</a><a class="btn secondary" href="/admin/users">Student accounts</a><a class="btn secondary" href="/admin/activity">Activity log</a>{% if is_owner %}<a class="btn secondary" href="/admin/team">Admins</a>{% endif %}<button type="button" class="btn secondary" id="logoutBtn">Sign out{% if who %} ({{ who }}){% endif %}</button></div></section>
 <div class="admin-layout">
   <div class="admin-forms">
     <section class="panel" id="publishPanel">

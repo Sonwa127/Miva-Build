@@ -1,0 +1,42 @@
+{% extends 'public_base.html' %}
+{% block title %}Activity log · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:1000px;margin:0 auto">
+  <div class="eyebrow">Library administration</div>
+  <h1>Activity log</h1>
+  <p class="muted" style="margin-bottom:16px"><a href="/admin">← Back to admin</a></p>
+  <p class="muted" style="margin-bottom:16px">Who changed what, newest first. Times are shown in your local time. Reading pages and failed attempts are not recorded.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:16px">
+    <div class="field" style="margin:0"><label for="person">Person</label><select id="person"><option value="">Everyone</option></select></div>
+    <button class="btn" id="refresh" type="button">Refresh</button>
+  </div>
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr style="text-align:left"><th style="padding:8px">When</th><th style="padding:8px">Who</th><th style="padding:8px">What</th><th style="padding:8px">Details</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <p id="empty" class="muted" style="display:none;margin-top:16px">Nothing recorded yet.</p>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script>
+const rows = document.getElementById('rows');
+const person = document.getElementById('person');
+function cell(text) { const td = document.createElement('td'); td.style.padding = '8px'; td.textContent = text; return td; }
+async function load() {
+  const chosen = person.value;
+  const data = await api('/api/admin/activity?limit=300' + (chosen ? '&actor=' + encodeURIComponent(chosen) : ''));
+  person.replaceChildren(new Option('Everyone', ''));
+  for (const name of data.people) person.append(new Option(name, name));
+  person.value = chosen;
+  rows.replaceChildren();
+  document.getElementById('empty').style.display = data.events.length ? 'none' : 'block';
+  for (const event of data.events) {
+    const tr = document.createElement('tr');
+    tr.style.borderTop = '1px solid #e5e7eb';
+    tr.append(cell(new Date(event.at).toLocaleString()), cell(event.actor_name), cell(event.action), cell(event.detail));
+    rows.append(tr);
+  }
+}
+person.addEventListener('change', load);
+document.getElementById('refresh').addEventListener('click', load);
+load();
+</script>{% endblock %}

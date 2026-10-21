@@ -49,7 +49,7 @@ async function load() {
   for (const user of users) {
     const tr = document.createElement('tr');
     tr.style.borderTop = '1px solid #e5e7eb';
-    tr.append(cell(user.email), cell(day(user.created_at)), cell(day(user.last_login_at)), cell(user.disabled ? 'Disabled' : 'Active'));
+    tr.append(cell(user.email + (user.admin ? ' (admin)' : '')), cell(day(user.created_at)), cell(day(user.last_login_at)), cell(user.disabled ? 'Disabled' : 'Active'));
     const actions = document.createElement('td'); actions.style.cssText = 'padding:8px;white-space:nowrap';
     actions.append(action(user.disabled ? 'Enable' : 'Disable', async () => {
       await api(`/api/admin/users/${user.id}/${user.disabled ? 'enable' : 'disable'}`, 'POST'); load();
@@ -58,6 +58,12 @@ async function load() {
       const result = await api(`/api/admin/users/${user.id}/reset-link`, 'POST');
       showLink(`Reset link for ${result.email} (works once, ${result.expires_in_hours} hours): ${result.link}`);
     }));
+    if (!user.admin) {
+      {% if is_owner %}actions.append(action('Make admin', async () => {
+        if (!confirm(`Make ${user.email} an admin? They can manage the whole library.`)) return;
+        await api('/api/admin/team', 'POST', {account_id: user.id}); showLink(`${user.email} is now an admin. They sign in at /admin/login with their student email and password.`); load();
+      }));{% endif %}
+    }
     actions.append(action('Delete', async () => {
       if (!confirm(`Delete ${user.email}? They will need to sign up again.`)) return;
       await api(`/api/admin/users/${user.id}`, 'DELETE'); load();

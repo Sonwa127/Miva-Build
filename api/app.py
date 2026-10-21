@@ -11,10 +11,11 @@ from archive import config, courses, course_weeks, registry, resources, summarie
 from archive.llm import LLMError
 from .routes import analytics, courses as courses_router, documents, evaluation, qa, study
 from .routes import admin, resources as resources_router
-from .routes import accounts as accounts_routes, accounts_admin
+from .routes import accounts as accounts_routes, accounts_admin, team
 from .gate import login_gate
 from .routes import course_weeks as course_weeks_router
-from .auth import can_setup_locally, is_admin, load_credentials
+from .activity import record_admin_activity
+from .auth import can_setup_locally, identity, is_admin, load_credentials
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -50,6 +51,10 @@ app.include_router(resources_router.router)
 app.include_router(accounts_routes.router)
 app.include_router(accounts_admin.api_router)
 app.include_router(accounts_admin.page_router)
+app.include_router(team.api_router)
+app.include_router(team.page_router)
+# Activity log for admin changes (who did what).
+app.middleware("http")(record_admin_activity)
 # Student login gate; does nothing unless ARCHIVE_REQUIRE_LOGIN=1.
 app.middleware("http")(login_gate)
 app.include_router(course_weeks_router.router)
@@ -211,10 +216,11 @@ async def admin_login_page(request: Request):
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard_page(request: Request):
-    if not is_admin(request):
+    who = identity(request)
+    if not who:
         return RedirectResponse("/admin/login", status_code=303)
     return templates.TemplateResponse(request=request, name="admin.html", context={
-        "active_page": "admin", "courses": courses.list_courses(),
+        "active_page": "admin", "who": who.name, "is_owner": who.is_owner, "courses": courses.list_courses(),
         "documents": registry.list_all(), "resources": resources.list_resources(),
         "course_weeks": course_weeks.list_weeks(),
     })

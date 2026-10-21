@@ -1,0 +1,67 @@
+{% extends 'public_base.html' %}
+{% block title %}Admins · StudyArchive{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:860px;margin:0 auto">
+  <div class="eyebrow">Library administration</div>
+  <h1>Admins</h1>
+  <p class="muted" style="margin-bottom:16px"><a href="/admin">← Back to admin</a> · <a href="/admin/activity">Activity log</a> · <a href="/admin/users">Student accounts</a></p>
+  <p class="muted" style="margin-bottom:24px">A collaborator first signs up like any classmate, using the cohort code. Then you make them an admin here. They sign in at <code>/admin/login</code> with the same email and password. Admins can manage the whole library, student accounts and the cohort code. Only you can add or remove admins. Every change they make shows in the activity log under their name.</p>
+
+  <form id="addForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+    <div class="field" style="flex:2;min-width:220px;margin:0"><label for="memberEmail">Their student email</label><input id="memberEmail" type="email" required maxlength="254" placeholder="name@miva.edu.ng"></div>
+    <div class="field" style="flex:1;min-width:160px;margin:0"><label for="memberName">Name in the log (optional)</label><input id="memberName" maxlength="60" placeholder="e.g. Litpathway"></div>
+    <button class="btn" type="submit">Make admin</button>
+  </form>
+  <div id="result" class="notice" style="display:none;margin-bottom:16px;word-break:break-all"></div>
+
+  <h2 style="margin:24px 0 8px">Admins (<span id="count">0</span>)</h2>
+  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+    <thead><tr style="text-align:left"><th style="padding:8px">Name</th><th style="padding:8px">Email</th><th style="padding:8px">Last sign-in</th><th style="padding:8px">Status</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <p id="empty" class="muted" style="display:none;margin-top:16px">No collaborators yet. You are signed in as the owner.</p>
+</section>
+{% endblock %}
+{% block extra_scripts %}<script>
+const rows = document.getElementById('rows');
+const result = document.getElementById('result');
+const day = value => value ? value.slice(0, 10) : '-';
+function cell(text) { const td = document.createElement('td'); td.style.padding = '8px'; td.textContent = text; return td; }
+function action(label, handler) {
+  const button = document.createElement('button');
+  button.className = 'btn'; button.type = 'button'; button.textContent = label;
+  button.style.cssText = 'padding:4px 10px;margin-left:6px;font-size:13px';
+  button.addEventListener('click', handler);
+  return button;
+}
+async function load() {
+  const members = await api('/api/admin/team');
+  rows.replaceChildren();
+  document.getElementById('count').textContent = members.length;
+  document.getElementById('empty').style.display = members.length ? 'none' : 'block';
+  for (const member of members) {
+    const tr = document.createElement('tr');
+    tr.style.borderTop = '1px solid #e5e7eb';
+    tr.append(cell(member.name), cell(member.email), cell(day(member.last_login_at)),
+              cell(member.disabled ? 'Account disabled' : 'Active'));
+    const actions = document.createElement('td'); actions.style.cssText = 'padding:8px;white-space:nowrap';
+    actions.append(action('Remove admin', async () => {
+      if (!confirm(`Remove admin rights from ${member.name}? They stay a student and are signed out of admin.`)) return;
+      await api(`/api/admin/team/${member.id}`, 'DELETE'); load();
+    }));
+    tr.append(actions);
+    rows.append(tr);
+  }
+}
+document.getElementById('addForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const payload = {email: document.getElementById('memberEmail').value, name: document.getElementById('memberName').value || null};
+  try {
+    const added = await api('/api/admin/team', 'POST', payload);
+    result.textContent = `${added.name} (${added.email}) is now an admin. They sign in at /admin/login with their student email and password.`;
+    result.style.display = 'block';
+    event.target.reset(); load();
+  } catch (error) { result.style.display = 'none'; }
+});
+load();
+</script>{% endblock %}
