@@ -1,12 +1,8 @@
 {% extends 'public_base.html' %}
 {% block title %}Admins · StudyArchive{% endblock %}
 {% block content %}
-<section class="panel" style="max-width:860px;margin:0 auto">
-  <div class="eyebrow">Library administration</div>
-  <h1>Admins</h1>
-  <p class="muted" style="margin-bottom:16px"><a href="/admin">← Back to admin</a> · <a href="/admin/activity">Activity log</a> · <a href="/admin/users">Student accounts</a></p>
-  <p class="muted" style="margin-bottom:24px">A collaborator first signs up like any classmate, using the cohort code. Then you make them an admin here. They sign in at <code>/admin/login</code> with the same email and password. Admins can manage the whole library, student accounts and the cohort code. Only you can add or remove admins. Every change they make shows in the activity log under their name.</p>
-
+<section class="page-heading"><div><div class="eyebrow">Administrator workspace</div><h1>Admins</h1></div>{% include '_admin_nav.html' %}</section>
+<section class="panel">
   <form id="addForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
     <div class="field" style="flex:2;min-width:220px;margin:0"><label for="memberEmail">Their student email</label><input id="memberEmail" type="email" required maxlength="254" placeholder="name@miva.edu.ng"></div>
     <div class="field" style="flex:1;min-width:160px;margin:0"><label for="memberName">Name in the log (optional)</label><input id="memberName" maxlength="60" placeholder="e.g. Litpathway"></div>
@@ -64,4 +60,7 @@ document.getElementById('addForm').addEventListener('submit', async event => {
   } catch (error) { result.style.display = 'none'; }
 });
 load();
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  await api('/api/admin/logout', 'POST'); location.replace('/admin/login');
+});
 </script>{% endblock %}

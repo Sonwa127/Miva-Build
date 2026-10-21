@@ -1,0 +1,8 @@
+<div class="card-actions">
+  <a class="btn secondary" href="/admin">Library</a>
+  <a class="btn secondary" href="/admin/users">Student accounts</a>
+  <a class="btn secondary" href="/admin/activity">Activity log</a>
+  {% if is_owner %}<a class="btn secondary" href="/admin/team">Admins</a>{% endif %}
+  <a class="btn secondary" href="/resources" target="_blank">View student library ↗</a>
+  <button type="button" class="btn secondary" id="logoutBtn">Sign out{% if who %} ({{ who }}){% endif %}</button>
+</div>

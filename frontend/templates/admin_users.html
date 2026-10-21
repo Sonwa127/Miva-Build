@@ -1,10 +1,8 @@
 {% extends 'public_base.html' %}
 {% block title %}Student accounts · StudyArchive{% endblock %}
 {% block content %}
-<section class="panel" style="max-width:860px;margin:0 auto">
-  <div class="eyebrow">Library administration</div>
-  <h1>Student accounts</h1>
-  <p class="muted" style="margin-bottom:16px"><a href="/admin">← Back to admin</a></p>
+<section class="page-heading"><div><div class="eyebrow">Administrator workspace</div><h1>Student accounts</h1><p>Students sign up with the cohort code. Manage the code, one-time links and accounts here.</p></div>{% include '_admin_nav.html' %}</section>
+<section class="panel">
   {% if not login_required %}<div class="notice" style="margin-bottom:16px">Login is <strong>not required</strong> yet, so anyone can open the site. Set <code>ARCHIVE_REQUIRE_LOGIN=1</code> on the server to lock it.</div>{% endif %}
   <h2 style="margin:8px 0">Cohort code</h2>
   <p class="muted" style="margin-bottom:8px">Share this code in your class group. Students use it to create their own accounts{% if domains %} with {% for d in domains %}@{{ d }}{% if not loop.last %}, {% endif %}{% endfor %} emails{% endif %}. If it leaks, make a new one and the old one stops working at once.</p>
@@ -99,4 +97,7 @@ document.getElementById('inviteForm').addEventListener('submit', async event => 
 });
 loadCode();
 load();
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  await api('/api/admin/logout', 'POST'); location.replace('/admin/login');
+});
 </script>{% endblock %}

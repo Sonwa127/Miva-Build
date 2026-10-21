@@ -37,7 +37,8 @@ app = FastAPI(
 
 # Static and Templates
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR),
+                            context_processors=[lambda request: {"is_admin": is_admin(request)}])   # "Admin" link only for admins
 
 # Include API Routers
 app.include_router(courses_router.router)

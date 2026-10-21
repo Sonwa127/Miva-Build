@@ -274,3 +274,14 @@ def test_collaborator_cannot_make_cross_site_changes(site):
         assert response.status_code == 403
     assert site.post("/api/admin/team", json={"email": "lit@example.com"},
                      headers={"origin": "https://evil.example"}).status_code == 403
+
+
+def test_admin_link_is_shown_only_to_admins(site):
+    with TestClient(app) as student:
+        page = student.get("/courses")
+        assert page.status_code == 200 and 'href="/admin"' not in page.text      # students never see it
+    owner_sign_in(site)
+    assert 'href="/admin"' in site.get("/courses").text
+    member = add_member(site)
+    with member_client("lit@example.com", member["password"]) as lit:
+        assert 'href="/admin"' in lit.get("/courses").text

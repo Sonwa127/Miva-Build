@@ -1,11 +1,8 @@
 {% extends 'public_base.html' %}
 {% block title %}Activity log · StudyArchive{% endblock %}
 {% block content %}
-<section class="panel" style="max-width:1000px;margin:0 auto">
-  <div class="eyebrow">Library administration</div>
-  <h1>Activity log</h1>
-  <p class="muted" style="margin-bottom:16px"><a href="/admin">← Back to admin</a></p>
-  <p class="muted" style="margin-bottom:16px">Who changed what, newest first. Times are shown in your local time. Reading pages and failed attempts are not recorded.</p>
+<section class="page-heading"><div><div class="eyebrow">Administrator workspace</div><h1>Activity log</h1><p>Who changed what, newest first. Times are in your local time. Reading pages and failed attempts are not recorded.</p></div>{% include '_admin_nav.html' %}</section>
+<section class="panel">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:16px">
     <div class="field" style="margin:0"><label for="person">Person</label><select id="person"><option value="">Everyone</option></select></div>
     <button class="btn" id="refresh" type="button">Refresh</button>
@@ -39,4 +36,7 @@ async function load() {
 person.addEventListener('change', load);
 document.getElementById('refresh').addEventListener('click', load);
 load();
+document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  await api('/api/admin/logout', 'POST'); location.replace('/admin/login');
+});
 </script>{% endblock %}

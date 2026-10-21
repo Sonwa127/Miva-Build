@@ -22,10 +22,11 @@
       <a href="/resources" {% if active_page == 'resources' %}aria-current="page"{% endif %}>Resources</a>
       <a href="/ask" {% if active_page == 'ask' %}aria-current="page"{% endif %}>Ask AI</a>
       <a href="/study" {% if active_page == 'study' %}aria-current="page"{% endif %}>Flashcards</a>
+      {% if is_admin %}<a href="/admin" {% if active_page == 'admin' %}aria-current="page"{% endif %}>Admin</a>{% endif %}
     </nav>
   </header>
   <main id="main" class="site-main">{% block content %}{% endblock %}</main>
-  <footer class="site-footer"><span>Made for our classmates. Free to browse, watch, and study.</span><a href="/admin">Admin</a></footer>
+  <footer class="site-footer"><span>Made for our classmates. Free to browse, watch, and study.</span></footer>
   <div id="toastNotification" aria-live="polite" class="fixed top-20 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl transition-all duration-300 pointer-events-none transform translate-y-[-100px] opacity-0" role="status"></div>
   <script src="/static/js/app.js"></script>
   {% block extra_scripts %}{% endblock %}
