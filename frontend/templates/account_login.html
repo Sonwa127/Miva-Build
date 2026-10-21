@@ -13,6 +13,9 @@
     {% if error %}<p class="error-message" role="alert">{{ error }}</p>{% endif %}
     <button class="btn" type="submit" style="width:100%;margin-top:16px">Sign in</button>
   </form>
-  <p class="muted" style="font-size:13px;margin-top:22px"><a href="/forgot">Forgot your password?</a> · <a href="/signup">Create an account</a></p>
+  <p class="muted" style="font-size:13px;margin-top:14px"><a href="/forgot">Forgot your password?</a></p>
+  <hr style="border:0;border-top:1px solid #e5e7eb;margin:22px 0">
+  <p style="margin-bottom:12px"><strong>Don't have an account yet?</strong></p>
+  <a class="btn secondary" href="/signup" style="display:block;text-align:center">Sign up with the cohort code</a>
 </section>
 {% endblock %}
