@@ -24,7 +24,7 @@ class NewAdmin(BaseModel):
 
 
 def _public(a: admins.Admin) -> dict:
-    return {"id": a.id, "name": a.name, "email": a.email, "disabled": a.disabled,
+    return {"id": a.id, "name": a.name, "email": a.email, "disabled": a.disabled, "is_owner": a.is_owner,
             "created_at": a.created_at, "last_login_at": a.last_login_at}
 
 
@@ -87,6 +87,8 @@ def remove_member(member_id: int, request: Request):
     member = admins.get_admin(member_id)
     if not member:
         raise HTTPException(404, "No such admin.")
+    if member.is_owner:
+        raise HTTPException(409, "An owner cannot be removed here. Ask the person who runs the server.")
     admins.remove_admin(member_id)
     audit(request, "Removed an admin", f"{member.name} ({member.email})")
     return {"removed": True}

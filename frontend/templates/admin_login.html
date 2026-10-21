@@ -6,15 +6,11 @@
   <p class="muted" style="margin-bottom:24px">Manage the resources you share with your classmates.</p>
   {% if configured %}
   <form id="loginForm">
-    <fieldset class="field" style="border:0;padding:0;margin:0 0 14px">
-      <legend style="font-weight:600;margin-bottom:6px">Sign in as</legend>
-      <label style="font-weight:400;display:block;margin-bottom:4px"><input type="radio" name="who" value="owner" checked> Owner (main admin password)</label>
-      <label style="font-weight:400;display:block"><input type="radio" name="who" value="member"> Admin collaborator (student email and password)</label>
-    </fieldset>
-    <div class="field" id="emailField" hidden><label for="adminEmail">Your student email</label><input id="adminEmail" name="adminEmail" type="email" autocomplete="off" maxlength="254" disabled></div>
+    <div class="field" id="emailField"><label for="adminEmail">Email</label><input id="adminEmail" name="adminEmail" type="email" autocomplete="username" maxlength="254" required autofocus></div>
     <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" required maxlength="1024"></div>
     <p id="loginError" class="error-message" role="alert"></p>
     <button class="btn" type="submit" style="width:100%;margin-top:16px">Sign in</button>
+    <p class="muted" style="font-size:13px;margin-top:14px"><a href="#" id="backupLink">Use the main admin password instead</a></p>
   </form>
   {% elif can_setup_locally %}
   <form id="setupForm">
@@ -54,20 +50,22 @@ document.getElementById('setupForm')?.addEventListener('submit', async event => 
     button.disabled = false;
   }
 });
-document.querySelectorAll('#loginForm input[name=who]').forEach(radio => radio.addEventListener('change', () => {
-  const member = document.querySelector('#loginForm input[name=who]:checked').value === 'member';
-  const field = document.getElementById('emailField'), input = document.getElementById('adminEmail');
-  field.hidden = !member; input.disabled = !member; input.value = '';
-  (member ? input : document.getElementById('adminPassword')).focus();
-}));
+let backup = false;
+document.getElementById('backupLink')?.addEventListener('click', event => {
+  event.preventDefault();
+  backup = !backup;
+  const input = document.getElementById('adminEmail');
+  document.getElementById('emailField').hidden = backup; input.disabled = backup; input.required = !backup; input.value = '';
+  event.target.textContent = backup ? 'Sign in with my email instead' : 'Use the main admin password instead';
+  (backup ? document.getElementById('adminPassword') : input).focus();
+});
 document.getElementById('loginForm')?.addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.target.querySelector('button');
   button.disabled = true;
   document.getElementById('loginError').textContent = '';
   try {
-    const member = event.target.elements.who.value === 'member';
-    await api('/api/admin/login', 'POST', {password: event.target.elements.password.value, email: member ? (event.target.elements.adminEmail.value.trim() || null) : null});
+    await api('/api/admin/login', 'POST', {password: event.target.elements.password.value, email: backup ? null : (event.target.elements.adminEmail.value.trim() || null)});
     location.replace('/admin');
   } catch (error) {
     document.getElementById('loginError').textContent = error.message;

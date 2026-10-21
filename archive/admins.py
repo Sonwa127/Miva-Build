@@ -2,8 +2,9 @@
 
 A collaborator is an ordinary student account that the owner has made an admin. They sign in
 to /admin/login with the same email and password they use as a student, so there is nothing
-extra to remember and nothing to hand over. The main admin password (the owner) still works
-and is the only one that can add or remove admins.
+extra to remember and nothing to hand over. One of them is marked as an owner, and owners are
+the only admins who can add or remove admins. The main admin password still works as a
+recovery login and counts as an owner.
 
 Because the login is the student account, disabling that account, deleting it, or resetting its
 password also ends its admin sessions at once.
@@ -17,7 +18,7 @@ from .accounts import _db, _now_iso
 
 MAX_ACTIVITY_ROWS = 20000
 
-_SELECT = ("SELECT a.id, a.email, a.disabled, a.session_version, a.last_login_at, g.name, g.granted_at "
+_SELECT = ("SELECT a.id, a.email, a.disabled, a.session_version, a.last_login_at, g.name, g.granted_at, g.is_owner "
            "FROM admins g JOIN accounts a ON a.id = g.account_id")
 
 
@@ -30,13 +31,14 @@ class Admin:
     session_version: int
     created_at: str          # when admin rights were granted
     last_login_at: str | None
+    is_owner: bool = False   # owners can add and remove admins
 
 
 def _admin(row) -> Admin | None:
     if row is None:
         return None
     return Admin(row["id"], row["email"], row["name"], bool(row["disabled"]), row["session_version"],
-                 row["granted_at"], row["last_login_at"])
+                 row["granted_at"], row["last_login_at"], bool(row["is_owner"]))
 
 
 def clean_name(raw: str | None) -> str | None:
@@ -71,6 +73,15 @@ def make_admin(account_id: int, name: str | None = None) -> Admin:
         raise ValueError("Enter a name up to 60 characters.")
     with _db() as c:
         c.execute("INSERT INTO admins(account_id, name, granted_at) VALUES(?,?,?)", (account_id, shown, _now_iso()))
+    return get_admin(account_id)
+
+
+def set_owner(account_id: int, owner: bool = True) -> Admin:
+    """Make an existing admin an owner (or not). Owners add and remove admins."""
+    if not get_admin(account_id):
+        raise ValueError("That person is not an admin yet.")
+    with _db() as c:
+        c.execute("UPDATE admins SET is_owner=? WHERE account_id=?", (1 if owner else 0, account_id))
     return get_admin(account_id)
 
 

@@ -9,13 +9,15 @@
     python manage_users.py disable name@example.com
     python manage_users.py enable name@example.com
     python manage_users.py delete name@example.com
+    python manage_users.py owner name@example.com       # make an admin (and owner) of this student account
+    python manage_users.py unowner name@example.com     # take the owner flag away (stays an admin)
 """
 import sys
 
-from archive import accounts, config
+from archive import accounts, admins, config
 
 NO_ARG = {"list", "code", "newcode", "closecode"}
-WITH_EMAIL = {"invite", "reset", "disable", "enable", "delete"}
+WITH_EMAIL = {"invite", "reset", "disable", "enable", "delete", "owner", "unowner"}
 
 
 def link(token: str) -> str:
@@ -63,6 +65,15 @@ def main(argv: list[str]) -> int:
         return 1
     if command == "reset":
         print(f"One-time reset link for {email} (works once, valid 24 hours):\n{link(accounts.issue_token(email, 'reset'))}")
+    elif command in ("owner", "unowner"):
+        try:
+            if not admins.get_admin(account.id):
+                admins.make_admin(account.id)
+            member = admins.set_owner(account.id, command == "owner")
+        except ValueError as problem:
+            print(problem)
+            return 1
+        print(f"{member.email} is now {'an owner' if member.is_owner else 'an admin (not an owner)'}.")
     elif command == "delete":
         accounts.delete_account(account.id)
         print("Done.")

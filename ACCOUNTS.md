@@ -37,10 +37,12 @@ The administrator never needs a student account. The admin password and `/admin`
 
 ## Collaborator admins and the activity log
 
-The main admin password belongs to the owner. Collaborators do not get a separate password. They are ordinary student accounts that the owner promotes.
+Every admin signs in at `/admin/login` with one form: their student email and password. There is no separate admin password to hand out. One or more admins are marked **owner**, and only owners can add or remove admins.
 
-- A collaborator first signs up like any classmate, with the cohort code. The owner then opens `/admin/team`, types their student email and clicks **Make admin** (or clicks **Make admin** next to their name in `/admin/users`).
-- They sign in at `/admin/login` with the same email and password they use as a student. They can manage the whole library, student accounts and the cohort code. They cannot add or remove admins, and `/admin/team` is hidden from them.
+- A person first signs up like any classmate, with the cohort code. An owner then opens `/admin/team`, types their student email and clicks **Make admin** (or clicks **Make admin** next to their name in `/admin/users`).
+- Admins can manage the whole library, student accounts and the cohort code. They cannot add or remove admins, and `/admin/team` is hidden from them.
+- Make yourself the owner once, on the server: `python manage_users.py owner you@example.com` (it also makes the account an admin). `python manage_users.py unowner you@example.com` takes the flag away. Owners cannot be removed from the Admins page.
+- The main admin password (`manage_admin.py`) still works as a recovery login, under "Use the main admin password instead" on the sign-in page, and counts as an owner.
 - **Remove admin** takes the rights away but keeps the student account. Disabling the student account, deleting it, or resetting its password also ends the person's admin session at once. Changing the main admin password (`manage_admin.py`) signs everyone out of admin, collaborators included.
 - `/admin/activity` shows who changed what, newest first, and can be filtered by person. It records uploads, edits and deletes of PDFs, videos, courses and weeks, flashcard, quiz, summary and glossary generation, student account actions (with the student's email), cohort code changes, admin changes and admin sign-ins. It does not record reading pages, students' questions, failed attempts, links or passwords.
 - The log keeps the most recent 20,000 entries and lives in `accounts.sqlite`, so back up the whole `data/` folder.

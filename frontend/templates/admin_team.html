@@ -38,10 +38,10 @@ async function load() {
   for (const member of members) {
     const tr = document.createElement('tr');
     tr.style.borderTop = '1px solid #e5e7eb';
-    tr.append(cell(member.name), cell(member.email), cell(day(member.last_login_at)),
+    tr.append(cell(member.is_owner ? member.name + ' (owner)' : member.name), cell(member.email), cell(day(member.last_login_at)),
               cell(member.disabled ? 'Account disabled' : 'Active'));
     const actions = document.createElement('td'); actions.style.cssText = 'padding:8px;white-space:nowrap';
-    actions.append(action('Remove admin', async () => {
+    if (!member.is_owner) actions.append(action('Remove admin', async () => {
       if (!confirm(`Remove admin rights from ${member.name}? They stay a student and are signed out of admin.`)) return;
       await api(`/api/admin/team/${member.id}`, 'DELETE'); load();
     }));

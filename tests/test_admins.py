@@ -241,3 +241,51 @@ def test_disabled_flag_alone_blocks_a_session(db):
     with accounts._db() as c:
         c.execute("UPDATE accounts SET disabled=1 WHERE id=?", (member.id,))
     assert auth.identity(FakeRequest(token)) is None
+
+
+# ------------------------------------------------------------------ owner as a student account
+def _admin_account(email="boss@example.com"):
+    account = accounts.create_account(email, PASSWORD)
+    return account, admins.make_admin(account.id)
+
+
+def test_admins_are_not_owners_until_flagged(db):
+    account, member = _admin_account()
+    assert member.is_owner is False
+    owner = admins.set_owner(account.id)
+    assert owner.is_owner is True and admins.get_admin(account.id).is_owner is True
+    assert admins.set_owner(account.id, False).is_owner is False
+
+
+def test_only_admins_can_be_made_owner(db):
+    student = accounts.create_account("plain@example.com", PASSWORD)
+    with pytest.raises(ValueError):
+        admins.set_owner(student.id)
+
+
+def test_owner_flag_decides_identity_not_the_cookie(db):
+    account, member = _admin_account()
+    cookie = auth.issue_session(member)
+    who = auth.identity(FakeRequest(cookie))
+    assert who.kind == "admin" and not who.is_owner
+    admins.set_owner(account.id)                                      # takes effect on the next request
+    assert auth.identity(FakeRequest(cookie)).is_owner
+    admins.set_owner(account.id, False)
+    assert not auth.identity(FakeRequest(cookie)).is_owner
+    assert auth.identity(FakeRequest(auth.issue_session())).is_owner   # main password still counts as owner
+
+
+def test_old_database_without_the_owner_column_is_upgraded(db):
+    import sqlite3
+    path = config.ACCOUNTS_DB
+    conn = sqlite3.connect(path)
+    conn.execute("DROP TABLE IF EXISTS admins")
+    conn.execute("CREATE TABLE admins (account_id INTEGER PRIMARY KEY, name TEXT NOT NULL, granted_at TEXT NOT NULL)")
+    conn.execute("INSERT INTO admins VALUES (1, 'Sonwa', '2026-10-21T21:53:05Z')")
+    conn.commit()
+    conn.close()
+    with accounts._db() as c:
+        c.execute("INSERT OR IGNORE INTO accounts(id, email, password_hash, created_at) VALUES (1, 'a@example.com', 'x', '2026-01-01T00:00:00Z')")
+    member = admins.get_admin(1)
+    assert member.name == "Sonwa" and member.is_owner is False        # existing admin kept, not an owner
+    assert admins.set_owner(1).is_owner is True

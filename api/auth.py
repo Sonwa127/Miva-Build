@@ -76,10 +76,11 @@ class Identity:
     id: int | None
     name: str
     email: str | None = None
+    owner: bool = False             # an admin account that the owner flag is set on
 
     @property
     def is_owner(self) -> bool:
-        return self.kind == "owner"
+        return self.kind == "owner" or self.owner
 
 
 def issue_session(admin: admins.Admin | None = None) -> str:
@@ -113,7 +114,7 @@ def identity(request: Request) -> Identity | None:
         admin = admins.get_admin(int(parts[2]))
         if not admin or admin.disabled or admin.session_version != int(parts[3]):
             return None
-        return Identity("admin", admin.id, admin.name, admin.email)
+        return Identity("admin", admin.id, admin.name, admin.email, admin.is_owner)
     except (ValueError, KeyError):
         return None
 

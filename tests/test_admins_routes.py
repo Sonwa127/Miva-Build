@@ -254,7 +254,7 @@ def test_pages_render_for_the_right_people(site):
         assert lit.get("/admin/activity").status_code == 200
         assert "no-store" in lit.get("/admin/activity").headers["cache-control"]
     page = TestClient(app).get("/admin/login").text
-    assert 'name="who"' in page and 'value="owner" checked' in page
+    assert 'name="who"' not in page and 'id="adminEmail"' in page and "main admin password instead" in page
 
 
 def test_collaborator_passes_the_student_login_gate(site, monkeypatch):
@@ -286,3 +286,23 @@ def test_admin_link_is_shown_only_to_admins(site):
     member = add_member(site)
     with member_client("lit@example.com", member["password"]) as lit:
         assert 'href="/admin"' in lit.get("/courses").text
+
+
+def test_owner_account_signs_in_with_email_and_gets_the_owner_pages(site):
+    accounts.create_account("boss@example.com", "boss student password")
+    owner_sign_in(site)
+    assert site.post("/api/admin/team", json={"email": "boss@example.com", "name": "Boss"}).status_code == 200
+    boss_id = accounts.get_account_by_email("boss@example.com").id
+    admins.set_owner(boss_id)
+    with member_client("boss@example.com", "boss student password") as boss:
+        assert boss.get("/api/admin/me").json() == {"name": "Boss", "is_owner": True}
+        assert boss.get("/admin/team").status_code == 200
+        assert boss.get("/api/admin/team").status_code == 200
+        lit = add_member(boss)                                          # an owner account can add admins
+        with member_client("lit@example.com", lit["password"]) as plain:
+            assert plain.get("/api/admin/team").status_code == 403       # but an ordinary admin cannot
+            assert plain.get("/admin/team", follow_redirects=False).status_code == 303
+        listed = {m["email"]: m["is_owner"] for m in boss.get("/api/admin/team").json()}
+        assert listed == {"boss@example.com": True, "lit@example.com": False}
+        assert boss.delete(f"/api/admin/team/{boss_id}").status_code == 409   # owners are not removable from the page
+        assert admins.get_admin(boss_id) is not None

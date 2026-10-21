@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS login_tokens (
 CREATE TABLE IF NOT EXISTS admins (
     account_id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
-    granted_at TEXT NOT NULL
+    granted_at TEXT NOT NULL,
+    is_owner INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS activity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,6 +95,8 @@ def _db():
     conn.row_factory = sqlite3.Row
     try:
         conn.executescript(SCHEMA)
+        if "is_owner" not in {r[1] for r in conn.execute("PRAGMA table_info(admins)")}:
+            conn.execute("ALTER TABLE admins ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0")   # databases made before owners were accounts
         yield conn
         conn.commit()
     except Exception:
