@@ -32,6 +32,7 @@ async def ask_assistant(
             k=payload.k,
             course=payload.course_id,
             doc_id=payload.doc_id,
+            previous=payload.previous_question,
         )
     except LLMError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))

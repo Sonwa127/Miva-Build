@@ -48,6 +48,7 @@
   let busy = false;
   let sequence = 0;
   const answers = new Map();
+  let lastAsked = null;                       // {question, course} of the last answered question, so "give examples" knows the topic
 
   function scopeChanged() {
     document.getElementById('inputScopeLabel').textContent = course.value ? `Searching ${course.value} materials` : 'Searching all courses';
@@ -121,7 +122,9 @@
     messages.setAttribute('aria-busy', 'true');
     resetSources('Looking for passages that support an answer to this question.', true);
     try {
-      const result = await api('/api/qa/ask', 'POST', {question, course_id: selectedCourse || null});
+      const previous = lastAsked && lastAsked.course === (selectedCourse || '') ? lastAsked.question : null;
+      const result = await api('/api/qa/ask', 'POST', {question, course_id: selectedCourse || null, previous_question: previous});
+      lastAsked = {question, course: selectedCourse || ''};
       document.getElementById('aiLoadingCard')?.remove();
       renderAnswer(result, question, selectedCourse);
     } catch (error) {
@@ -156,6 +159,7 @@
     if (busy) return;
     messages.innerHTML = welcome;
     answers.clear();
+    lastAsked = null;
     resetSources();
     input.value = '';
     input.focus();

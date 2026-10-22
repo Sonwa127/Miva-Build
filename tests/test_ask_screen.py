@@ -27,7 +27,7 @@ def test_ask_explains_sources_and_provider_state(client, monkeypatch, provider, 
     assert 'value="PHY 101" selected' in html
     assert "Mechanics &amp; Motion" in html
     assert "From your reading" in html
-    assert "Each question is answered independently" in html
+    assert "Short follow-ups like" in html
     assert ("Demo mode" in html) is demo
     assert "Confidence:" not in html
     assert "100% Vector Fidelity" not in html

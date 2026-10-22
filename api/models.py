@@ -86,6 +86,7 @@ class AskRequest(BaseModel):
     course_id: Optional[str] = None
     doc_id: Optional[str] = None
     k: Optional[int] = Field(None, ge=1, le=20)
+    previous_question: Optional[str] = Field(None, max_length=500)   # the question just before this one, for follow-ups
     provider: Optional[str] = None
     model: Optional[str] = None
 
